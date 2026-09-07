@@ -218,8 +218,9 @@ const GoogleCalendar = {
     };
 
     if (m.time) {
+      const durationMinutes = Number(m.duration) || 30;
       const startDate = new Date(`${m.date}T${m.time}:00`);
-      const endDate = new Date(startDate.getTime() + 30 * 60000);
+      const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
       const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
       body.start = { dateTime: fmt(startDate), timeZone: tz };
       body.end = { dateTime: fmt(endDate), timeZone: tz };
@@ -297,10 +298,15 @@ const GoogleCalendar = {
     const pad = (n) => String(n).padStart(2, '0');
     let date = '';
     let time = '';
+    let duration = 30;
     if (event.start && event.start.dateTime) {
       const d = new Date(event.start.dateTime);
       date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
       time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      if (event.end && event.end.dateTime) {
+        const diffMinutes = Math.round((new Date(event.end.dateTime) - d) / 60000);
+        if (diffMinutes > 0) duration = diffMinutes;
+      }
     } else if (event.start && event.start.date) {
       date = event.start.date;
     }
@@ -314,6 +320,7 @@ const GoogleCalendar = {
       title: event.summary || '(No title)',
       date,
       time,
+      duration,
       attendees,
       location: event.location || '',
       notes: event.description || '',

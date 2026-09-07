@@ -59,6 +59,15 @@ const Scheduler = {
     );
   },
 
+  timeRangeLabel(m) {
+    if (!m.time) return '';
+    const duration = Number(m.duration) || 30;
+    const [h, min] = m.time.split(':').map(Number);
+    const end = new Date(2000, 0, 1, h, min + duration);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${m.time}–${pad(end.getHours())}:${pad(end.getMinutes())}`;
+  },
+
   cardHtml(m) {
     const dateLabel = formatDate(m.date);
     const isPast = `${m.date}T${m.time || '00:00'}` < new Date().toISOString();
@@ -67,11 +76,11 @@ const Scheduler = {
         <div class="card-main">
           <div class="card-title">${escapeHtml(m.title)} ${m.googleEventId ? '<span class="badge badge-google" title="Synced to Google Calendar">Google Calendar</span>' : ''}</div>
           <div class="card-meta">
-            <span class="${isPast ? 'overdue' : ''}">${Icon.calendar(14)} ${dateLabel}${m.time ? ' at ' + m.time : ''}</span>
+            <span class="${isPast ? 'overdue' : ''}">${Icon.calendar(14)} ${dateLabel}${m.time ? ' at ' + this.timeRangeLabel(m) : ''}</span>
             ${m.attendees ? `<span>${Icon.users(14)} ${escapeHtml(m.attendees)}</span>` : ''}
             ${m.location ? `<span>${Icon.mapPin(14)} ${escapeHtml(m.location)}</span>` : ''}
           </div>
-          ${m.meetLink ? `<div class="card-notes"><a href="${escapeAttr(m.meetLink)}" target="_blank" rel="noopener">${Icon.video(14)} Join Google Meet</a></div>` : ''}
+          ${m.meetLink ? `<div class="card-notes"><a href="${escapeAttr(m.meetLink)}" target="_blank" rel="noopener">${Icon.video(14)} ${escapeHtml(m.meetLink)}</a></div>` : ''}
           ${m.notes ? `<div class="card-notes">${escapeHtml(m.notes)}</div>` : ''}
         </div>
         <div class="card-actions">
@@ -82,25 +91,48 @@ const Scheduler = {
     `;
   },
 
+  todayStr() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  },
+
+  DURATION_OPTIONS: [
+    { value: 15, label: '15 min' },
+    { value: 30, label: '30 min' },
+    { value: 45, label: '45 min' },
+    { value: 60, label: '1 hour' },
+    { value: 90, label: '1.5 hours' },
+    { value: 120, label: '2 hours' },
+  ],
+
   openForm(id) {
     const existing = id ? Store.get('meetings', id) : null;
     const title = existing ? 'Edit Meeting' : 'New Meeting';
+    const currentDuration = existing ? (existing.duration || 30) : 30;
+    const durationOptions = this.DURATION_OPTIONS
+      .map((d) => `<option value="${d.value}" ${Number(currentDuration) === d.value ? 'selected' : ''}>${d.label}</option>`)
+      .join('');
 
     Modal.open(`
       <h2>${title}</h2>
       <form id="meetingForm">
         <div class="form-row">
           <label>Title *</label>
-          <input type="text" name="title" required value="${existing ? escapeAttr(existing.title) : ''}" placeholder="e.g. Weekly sync with design team" />
+          <input type="text" name="title" required value="${existing ? escapeAttr(existing.title) : 'Outwork Interview'}" placeholder="e.g. Weekly sync with design team" />
         </div>
         <div class="form-row-inline">
           <div class="form-row">
             <label>Date *</label>
-            <input type="date" name="date" required value="${existing ? existing.date : ''}" />
+            <input type="date" name="date" required value="${existing ? existing.date : this.todayStr()}" />
           </div>
           <div class="form-row">
             <label>Time</label>
             <input type="time" name="time" value="${existing ? existing.time || '' : ''}" />
+          </div>
+          <div class="form-row">
+            <label>Duration</label>
+            <select name="duration">${durationOptions}</select>
           </div>
         </div>
         <div class="form-row">
@@ -141,16 +173,19 @@ const Scheduler = {
           payload.meetLink = null;
           payload.htmlLink = null;
         }
-        if (existing) {
-          Store.update('meetings', existing.id, payload);
-          Toast.show(wantSync && googleFields ? 'Meeting updated & synced to Google Calendar' : 'Meeting updated');
-        } else {
-          Store.add('meetings', payload);
-          Toast.show(wantSync && googleFields ? 'Meeting scheduled with Google Meet link' : 'Meeting scheduled');
-        }
-        Modal.close();
+        const saved = existing
+          ? Store.update('meetings', existing.id, payload)
+          : Store.add('meetings', payload);
+
         this.render();
         App.refreshOverview();
+
+        if (wantSync && googleFields && googleFields.meetLink) {
+          this.showMeetLinkConfirmation(saved);
+        } else {
+          Toast.show(existing ? 'Meeting updated' : 'Meeting scheduled');
+          Modal.close();
+        }
       };
 
       if (!wantSync) {
@@ -177,6 +212,40 @@ const Scheduler = {
         }
       });
     });
+  },
+
+  showMeetLinkConfirmation(meeting) {
+    Modal.open(`
+      <h2>Meeting scheduled</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:-8px;">Here's the Google Meet link — copy it or share it with attendees.</p>
+      <div class="form-row">
+        <label>Google Meet link</label>
+        <input type="text" id="meetLinkDisplay" value="${escapeAttr(meeting.meetLink)}" readonly />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn" id="copyLinkBtn">Copy Link</button>
+        <button type="button" class="primary-btn" id="doneBtn">Done</button>
+      </div>
+    `);
+
+    const input = document.getElementById('meetLinkDisplay');
+    input.addEventListener('click', () => input.select());
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      input.select();
+      const copied = () => Toast.show('Link copied to clipboard');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(meeting.meetLink).then(copied).catch(() => {
+          document.execCommand('copy');
+          copied();
+        });
+      } else {
+        document.execCommand('copy');
+        copied();
+      }
+    });
+
+    document.getElementById('doneBtn').addEventListener('click', () => Modal.close());
   },
 
   // Core pull-sync, shared by the manual button and the automatic background sync.
