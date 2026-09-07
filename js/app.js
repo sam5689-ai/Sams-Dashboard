@@ -87,17 +87,39 @@ const App = {
   },
 
   initNav() {
+    const sidebar = document.getElementById('sidebar');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+    const closeSidebar = () => {
+      sidebar.classList.remove('open');
+      if (sidebarBackdrop) sidebarBackdrop.classList.remove('open');
+    };
+    const openSidebar = () => {
+      sidebar.classList.add('open');
+      if (sidebarBackdrop) sidebarBackdrop.classList.add('open');
+    };
+
     document.querySelectorAll('.nav-item').forEach((btn) => {
-      btn.addEventListener('click', () => this.showView(btn.dataset.view));
+      btn.addEventListener('click', () => {
+        this.showView(btn.dataset.view);
+        closeSidebar();
+      });
     });
     document.querySelectorAll('[data-goto]').forEach((btn) => {
-      btn.addEventListener('click', () => this.showView(btn.dataset.goto));
+      btn.addEventListener('click', () => {
+        this.showView(btn.dataset.goto);
+        closeSidebar();
+      });
     });
 
     const menuToggle = document.getElementById('menuToggle');
-    const sidebar = document.getElementById('sidebar');
-    menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
-    document.querySelector('.main').addEventListener('click', () => sidebar.classList.remove('open'));
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (sidebar.classList.contains('open')) closeSidebar();
+      else openSidebar();
+    });
+    if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
+    const sidebarClose = document.getElementById('sidebarClose');
+    if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
   },
 
   showView(view) {
