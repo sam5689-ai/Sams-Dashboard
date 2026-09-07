@@ -5,7 +5,7 @@
 const GoogleCalendar = {
   CLIENT_ID_KEY: 'dashboard.google.clientId',
   TOKEN_KEY: 'dashboard.google.token',
-  SCOPE: 'https://www.googleapis.com/auth/calendar.events',
+  SCOPE: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.modify',
 
   tokenClient: null,
   gisLoading: null,
@@ -145,11 +145,12 @@ const GoogleCalendar = {
   openSettings() {
     const clientId = this.getClientId();
     Modal.open(`
-      <h2>Connect Google Calendar</h2>
+      <h2>Connect Google</h2>
       <p style="font-size:13px;color:var(--text-muted);margin-top:-8px;">
         Paste your Google OAuth Client ID to let this dashboard create real
-        Google Calendar events (with Meet links) when you schedule meetings.
-        It's free to create — see the README for step-by-step instructions.
+        Google Calendar events (with Meet links) and turn labeled Gmail
+        messages into tasks. It's free to create — see the README for
+        step-by-step instructions.
       </p>
       <div class="form-row">
         <label>OAuth Client ID</label>
@@ -186,10 +187,11 @@ const GoogleCalendar = {
     }
   },
 
-  async apiRequest(method, path, body) {
+  // Generic authenticated request against any Google API (Calendar, Gmail, ...).
+  async rawRequest(method, url, body) {
     const token = this.getToken();
-    if (!token) throw new Error('Not connected to Google Calendar');
-    const res = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
+    if (!token) throw new Error('Not connected to Google');
+    const res = await fetch(url, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -202,10 +204,14 @@ const GoogleCalendar = {
       try {
         detail = (await res.json()).error?.message || '';
       } catch (e) { /* ignore */ }
-      throw new Error(`Google Calendar error (${res.status})${detail ? ': ' + detail : ''}`);
+      throw new Error(`Google API error (${res.status})${detail ? ': ' + detail : ''}`);
     }
     if (res.status === 204) return null;
     return res.json();
+  },
+
+  async apiRequest(method, path, body) {
+    return this.rawRequest(method, `https://www.googleapis.com/calendar/v3${path}`, body);
   },
 
   buildEventBody(m) {

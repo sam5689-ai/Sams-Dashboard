@@ -6,6 +6,8 @@ const Tasks = {
 
   init() {
     document.getElementById('addTaskBtn').addEventListener('click', () => this.openForm());
+    const syncBtn = document.getElementById('syncFromEmailBtn');
+    if (syncBtn) syncBtn.addEventListener('click', () => this.syncFromEmail());
     document.getElementById('taskStatusFilter').addEventListener('change', (e) => {
       this.statusFilter = e.target.value;
       this.render();
@@ -171,5 +173,73 @@ const Tasks = {
     this.render();
     App.refreshOverview();
     Toast.show('Task deleted');
+  },
+
+  // --- Email-to-task (Gmail label "ToDashboard" + AI parsing via /api/parse-email) ---
+
+  async parseEmailToTask(email) {
+    const res = await fetch('/api/parse-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject: email.subject, body: email.body, from: email.from }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Email parsing failed (${res.status})${errText ? ': ' + errText : ''}`);
+    }
+    return res.json();
+  },
+
+  // Core email sync, shared by the manual button and the automatic background sync.
+  async performEmailSync() {
+    const labelId = await Gmail.ensureLabelId();
+    const ids = await Gmail.listLabeledMessageIds(labelId);
+    let added = 0;
+    for (const id of ids) {
+      const email = await Gmail.getMessage(id);
+      const parsed = await this.parseEmailToTask(email);
+      Store.add('tasks', {
+        title: parsed.title,
+        description: parsed.description,
+        dueDate: parsed.dueDate,
+        priority: parsed.priority,
+        status: 'todo',
+        category: parsed.category || 'Email',
+      });
+      await Gmail.removeLabel(id, labelId);
+      added++;
+    }
+    if (added) {
+      this.render();
+      App.refreshOverview();
+    }
+    return added;
+  },
+
+  // Manual "Sync from Email" button: prompts to (re)connect if needed, always gives feedback.
+  syncFromEmail() {
+    const btn = document.getElementById('syncFromEmailBtn');
+    GoogleCalendar.withConnection(async () => {
+      if (btn) { btn.disabled = true; btn.innerHTML = `${Icon.download(15)} Checking email…`; }
+      try {
+        const added = await this.performEmailSync();
+        Toast.show(added ? `Imported ${added} task${added === 1 ? '' : 's'} from email` : 'No new labeled emails found. Apply the "ToDashboard" label in Gmail first.');
+      } catch (err) {
+        console.error(err);
+        Toast.show(err.message || 'Failed to sync from email');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = `${Icon.download(15)} Sync from Email`; }
+      }
+    });
+  },
+
+  // Automatic background sync: only runs if already signed in, stays quiet unless something changed.
+  autoSyncEmailIfConnected() {
+    if (!GoogleCalendar.getToken()) return;
+    this.performEmailSync()
+      .then((added) => {
+        if (added) Toast.show(`Imported ${added} task${added === 1 ? '' : 's'} from email`);
+      })
+      .catch((err) => console.warn('Background email sync failed', err));
   },
 };

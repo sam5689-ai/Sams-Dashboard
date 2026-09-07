@@ -131,7 +131,10 @@
             </select>
             <input type="search" id="taskSearch" placeholder="Search tasks..." />
           </div>
-          <button class="primary-btn" id="addTaskBtn"><span data-icon="plus"></span> New Task</button>
+          <div class="filter-group">
+            <button class="secondary-btn" id="syncFromEmailBtn"><span data-icon="download"></span> Sync from Email</button>
+            <button class="primary-btn" id="addTaskBtn"><span data-icon="plus"></span> New Task</button>
+          </div>
         </div>
         <div id="taskList" class="card-list"></div>
       </section>
@@ -147,6 +150,7 @@
   <script src="js/icons.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/google.js"></script>
+  <script src="js/gmail.js"></script>
   <script src="js/scheduler.js"></script>
   <script src="js/interviews.js"></script>
   <script src="js/tasks.js"></script>

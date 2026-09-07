@@ -54,15 +54,34 @@ Once connected, this pull sync also runs automatically — once when the dashboa
 
 The Client ID is stored in `localStorage`; the OAuth access token is stored in `sessionStorage` and expires after about an hour (click **Connect Google** again to refresh it).
 
+## Email-to-task (Gmail + AI)
+
+Label an email in Gmail and it turns into a task automatically — no email forwarding or dedicated inbox needed. This is the one feature that isn't purely static: it needs one small serverless function (already included, deploys with the rest of the site on Vercel) so an AI API key never has to sit in browser-visible code.
+
+**One-time setup:**
+
+1. In the same Google Cloud project as Calendar, go to **APIs & Services → Library** and enable the **Gmail API**.
+2. Under **OAuth consent screen → Data access**, add the Gmail scope `.../auth/gmail.modify` to the app's scope list (it's needed alongside the Calendar scope already there).
+3. In Gmail, create a label called exactly **`ToDashboard`** (the dashboard will also auto-create it the first time it runs if you skip this).
+4. Get an API key from [console.anthropic.com](https://console.anthropic.com/) (pay-as-you-go; parsing one email costs a fraction of a cent with the Haiku model this uses).
+5. In your Vercel project settings, add an environment variable named `ANTHROPIC_API_KEY` with that key, then redeploy.
+6. Back in the dashboard, click **Connect Google** again (the scope changed, so it needs a fresh sign-in) and grant the new Gmail permission.
+
+**Using it:** apply the `ToDashboard` label to any email — a request, a reminder, a follow-up — and click **Sync from Email** on the Task Management toolbar (or just wait; it also runs automatically on load and every 15 minutes like the calendar sync). Each labeled email is read, sent to Claude to extract a title, description, due date, priority, and category, added as a new task, and then the label is removed from the email so it isn't processed twice.
+
+This only works on the deployed Vercel site, not when running the dashboard via a plain local file server, since it needs the `/api/parse-email` function to be live.
+
 ## Project structure
 
 ```
-index.html        Page shell and layout for all views
-css/styles.css     Design system (light/dark theme aware)
-js/storage.js      localStorage data layer (CRUD + export/import)
-js/google.js       Google Calendar/Meet OAuth + API integration
-js/scheduler.js    Meeting Scheduler view logic
-js/interviews.js   Interview Tracker view logic
-js/tasks.js        Task Management view logic
-js/app.js          Navigation, modal, toast, theme, overview stats
+index.html          Page shell and layout for all views
+css/styles.css       Design system (light/dark theme aware)
+api/parse-email.js   Vercel serverless function: calls Claude to turn an email into a task
+js/storage.js        localStorage data layer (CRUD + export/import)
+js/google.js         Google OAuth (Calendar + Gmail scopes) + generic API request helper
+js/gmail.js           Gmail label lookup, message fetching/decoding, label removal
+js/scheduler.js      Meeting Scheduler view logic
+js/interviews.js     Interview Tracker view logic
+js/tasks.js          Task Management view logic + email-to-task sync
+js/app.js            Navigation, modal, toast, theme, overview stats, auto-sync scheduling
 ```

@@ -57,11 +57,16 @@ const App = {
     this.initGoogleAutoSync();
   },
 
-  // Keeps meetings current without manual clicks: syncs once on load (only
-  // if already signed in) and again every 15 minutes while the tab is open.
+  // Keeps meetings and labeled emails current without manual clicks: syncs
+  // once on load (only if already signed in) and again every 15 minutes
+  // while the tab is open.
   initGoogleAutoSync() {
     Scheduler.autoSyncIfConnected();
-    setInterval(() => Scheduler.autoSyncIfConnected(), 15 * 60 * 1000);
+    Tasks.autoSyncEmailIfConnected();
+    setInterval(() => {
+      Scheduler.autoSyncIfConnected();
+      Tasks.autoSyncEmailIfConnected();
+    }, 15 * 60 * 1000);
   },
 
   renderStaticIcons() {
