@@ -22,7 +22,22 @@ Or just open `index.html` directly in a browser.
 
 ## Data storage
 
-All data is stored locally in your browser via `localStorage` — nothing leaves your machine. Use the **Export** button in the sidebar to download a JSON backup, and **Import** to restore it (or move data between browsers/devices).
+All data is stored locally in your browser via `localStorage` — nothing leaves your machine (except meetings you explicitly sync to Google Calendar, see below). Use the **Export** button in the sidebar to download a JSON backup, and **Import** to restore it (or move data between browsers/devices).
+
+## Google Calendar / Google Meet sync
+
+The Meeting Scheduler can create real Google Calendar events with an auto-generated Google Meet link, using Google's own sign-in flow directly from your browser — no backend or server-side secret involved. To enable it, you need a free OAuth Client ID from your own Google Cloud project (takes ~2 minutes):
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or pick an existing one).
+2. Under **APIs & Services → Library**, enable the **Google Calendar API**.
+3. Under **APIs & Services → OAuth consent screen**, set it to **External**, fill in the required fields, and add your own Google account under **Test users** (unless your project is verified).
+4. Under **APIs & Services → Credentials**, click **Create Credentials → OAuth client ID**, choose **Web application**, and add an **Authorized JavaScript origin** matching wherever you'll run this dashboard from (e.g. `http://localhost:8080`, or your GitHub Pages URL).
+5. Copy the generated **Client ID** (looks like `xxxxxxxxxx.apps.googleusercontent.com`).
+6. In the dashboard, click **Connect Google** in the sidebar, paste the Client ID, and sign in when prompted.
+
+Once connected, new meetings have a **"Sync to Google Calendar & add a Meet link"** checkbox (on by default while connected). Synced meetings show a *Google Calendar* badge and a **Join Google Meet** link on their card; editing keeps the linked event in sync, and deleting a synced meeting also removes it from your Google Calendar. Only comma-separated entries that look like email addresses in the Attendees field are invited on Google's side.
+
+The Client ID is stored in `localStorage`; the OAuth access token is stored in `sessionStorage` and expires after about an hour (click **Connect Google** again to refresh it).
 
 ## Project structure
 
@@ -30,6 +45,7 @@ All data is stored locally in your browser via `localStorage` — nothing leaves
 index.html        Page shell and layout for all views
 css/styles.css     Design system (light/dark theme aware)
 js/storage.js      localStorage data layer (CRUD + export/import)
+js/google.js       Google Calendar/Meet OAuth + API integration
 js/scheduler.js    Meeting Scheduler view logic
 js/interviews.js   Interview Tracker view logic
 js/tasks.js        Task Management view logic

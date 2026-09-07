@@ -47,6 +47,7 @@ const App = {
     this.initExportImport();
     this.updateDate();
 
+    GoogleCalendar.init();
     Scheduler.init();
     Interviews.init();
     Tasks.init();

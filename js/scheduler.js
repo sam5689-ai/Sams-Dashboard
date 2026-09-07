@@ -63,12 +63,13 @@ const Scheduler = {
     return `
       <div class="card">
         <div class="card-main">
-          <div class="card-title">${escapeHtml(m.title)}</div>
+          <div class="card-title">${escapeHtml(m.title)} ${m.googleEventId ? '<span class="badge badge-google" title="Synced to Google Calendar">Google Calendar</span>' : ''}</div>
           <div class="card-meta">
             <span class="${isPast ? 'overdue' : ''}">&#128197; ${dateLabel}${m.time ? ' at ' + m.time : ''}</span>
             ${m.attendees ? `<span>&#128101; ${escapeHtml(m.attendees)}</span>` : ''}
             ${m.location ? `<span>&#128205; ${escapeHtml(m.location)}</span>` : ''}
           </div>
+          ${m.meetLink ? `<div class="card-notes"><a href="${escapeAttr(m.meetLink)}" target="_blank" rel="noopener">&#127909; Join Google Meet</a></div>` : ''}
           ${m.notes ? `<div class="card-notes">${escapeHtml(m.notes)}</div>` : ''}
         </div>
         <div class="card-actions">
@@ -112,9 +113,13 @@ const Scheduler = {
           <label>Notes</label>
           <textarea name="notes" rows="3">${existing ? escapeHtml(existing.notes || '') : ''}</textarea>
         </div>
+        <div class="form-row" style="flex-direction:row;align-items:center;gap:8px;">
+          <input type="checkbox" name="syncToGoogle" id="syncToGoogle" style="width:auto;" ${(existing ? !!existing.googleEventId : GoogleCalendar.isConnected()) ? 'checked' : ''} />
+          <label for="syncToGoogle" style="margin:0;">Sync to Google Calendar &amp; add a Meet link</label>
+        </div>
         <div class="modal-actions">
           <button type="button" class="secondary-btn" id="cancelBtn">Cancel</button>
-          <button type="submit" class="primary-btn">${existing ? 'Save Changes' : 'Add Meeting'}</button>
+          <button type="submit" class="primary-btn" id="meetingSubmitBtn">${existing ? 'Save Changes' : 'Add Meeting'}</button>
         </div>
       </form>
     `);
@@ -122,22 +127,65 @@ const Scheduler = {
     document.getElementById('cancelBtn').addEventListener('click', () => Modal.close());
     document.getElementById('meetingForm').addEventListener('submit', (e) => {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      if (existing) {
-        Store.update('meetings', existing.id, data);
-        Toast.show('Meeting updated');
-      } else {
-        Store.add('meetings', data);
-        Toast.show('Meeting scheduled');
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form).entries());
+      const wantSync = !!data.syncToGoogle;
+      delete data.syncToGoogle;
+
+      const finish = (googleFields) => {
+        const payload = { ...data, ...(googleFields || {}) };
+        if (!wantSync) {
+          payload.googleEventId = null;
+          payload.meetLink = null;
+          payload.htmlLink = null;
+        }
+        if (existing) {
+          Store.update('meetings', existing.id, payload);
+          Toast.show(wantSync && googleFields ? 'Meeting updated & synced to Google Calendar' : 'Meeting updated');
+        } else {
+          Store.add('meetings', payload);
+          Toast.show(wantSync && googleFields ? 'Meeting scheduled with Google Meet link' : 'Meeting scheduled');
+        }
+        Modal.close();
+        this.render();
+        App.refreshOverview();
+      };
+
+      if (!wantSync) {
+        finish(null);
+        return;
       }
-      Modal.close();
-      this.render();
-      App.refreshOverview();
+
+      const submitBtn = document.getElementById('meetingSubmitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Syncing…';
+
+      GoogleCalendar.withConnection(async () => {
+        try {
+          const merged = { ...(existing || {}), ...data };
+          const result = existing && existing.googleEventId
+            ? await GoogleCalendar.updateEventForMeeting({ ...merged, googleEventId: existing.googleEventId })
+            : await GoogleCalendar.createEventForMeeting(merged);
+          finish(result);
+        } catch (err) {
+          console.error(err);
+          Toast.show(err.message || 'Failed to sync with Google Calendar');
+          submitBtn.disabled = false;
+          submitBtn.textContent = existing ? 'Save Changes' : 'Add Meeting';
+        }
+      });
     });
   },
 
   deleteMeeting(id) {
-    if (!confirm('Delete this meeting?')) return;
+    const meeting = Store.get('meetings', id);
+    const msg = meeting && meeting.googleEventId
+      ? 'Delete this meeting? This will also remove it from Google Calendar.'
+      : 'Delete this meeting?';
+    if (!confirm(msg)) return;
+    if (meeting && meeting.googleEventId && GoogleCalendar.getToken()) {
+      GoogleCalendar.deleteEventForMeeting(meeting);
+    }
     Store.remove('meetings', id);
     this.render();
     App.refreshOverview();

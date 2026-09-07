@@ -140,6 +140,11 @@ body {
 
 .ghost-btn:hover { color: var(--text); border-color: var(--accent); }
 
+.ghost-btn.connected {
+  color: var(--success);
+  border-color: var(--success);
+}
+
 /* Main */
 .main {
   flex: 1;
@@ -412,6 +417,7 @@ textarea { resize: vertical; }
 .badge-Onsite { background: #fde68a; color: #92400e; }
 .badge-Offer { background: #d1fae5; color: #047857; }
 .badge-Hired { background: #bbf7d0; color: #166534; }
+.badge-google { background: #e8f0fe; color: #1a73e8; font-size: 10px; vertical-align: middle; margin-left: 4px; }
 
 [data-theme="dark"] .badge-high, [data-theme="dark"] .badge-Rejected { background: #4c1d1d; color: #fca5a5; }
 [data-theme="dark"] .badge-medium { background: #4a3510; color: #fcd34d; }
@@ -425,6 +431,7 @@ textarea { resize: vertical; }
 [data-theme="dark"] .badge-Onsite { background: #4a3a10; color: #fde68a; }
 [data-theme="dark"] .badge-Offer { background: #0d3b2e; color: #6ee7b7; }
 [data-theme="dark"] .badge-Hired { background: #0d3b2e; color: #86efac; }
+[data-theme="dark"] .badge-google { background: #1e2a4a; color: #8ab4f8; }
 
 .overdue { color: var(--danger); font-weight: 600; }
 
