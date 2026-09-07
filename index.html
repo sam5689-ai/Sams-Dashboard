@@ -15,24 +15,24 @@
       </div>
       <nav class="nav">
         <button class="nav-item active" data-view="overview">
-          <span class="nav-icon">&#9673;</span> Overview
+          <span class="nav-icon" data-icon="grid"></span> Overview
         </button>
         <button class="nav-item" data-view="scheduler">
-          <span class="nav-icon">&#128197;</span> Meeting Scheduler
+          <span class="nav-icon" data-icon="calendar"></span> Meeting Scheduler
         </button>
         <button class="nav-item" data-view="interviews">
-          <span class="nav-icon">&#128100;</span> Interview Tracker
+          <span class="nav-icon" data-icon="users"></span> Interview Tracker
         </button>
         <button class="nav-item" data-view="tasks">
-          <span class="nav-icon">&#9745;</span> Tasks
+          <span class="nav-icon" data-icon="checkSquare"></span> Tasks
         </button>
       </nav>
       <div class="sidebar-footer">
-        <button id="googleConnectBtn" class="ghost-btn" title="Connect Google Calendar">&#128279; Connect Google</button>
-        <button id="themeToggle" class="ghost-btn" title="Toggle theme">&#9788; Theme</button>
-        <button id="exportBtn" class="ghost-btn" title="Export all data">&#8595; Export</button>
+        <button id="googleConnectBtn" class="ghost-btn" title="Connect Google Calendar"><span data-icon="link"></span> Connect Google</button>
+        <button id="themeToggle" class="ghost-btn" title="Toggle theme"><span data-icon="contrast"></span> Theme</button>
+        <button id="exportBtn" class="ghost-btn" title="Export all data"><span data-icon="download"></span> Export</button>
         <label class="ghost-btn" title="Import data">
-          &#8593; Import
+          <span data-icon="upload"></span> Import
           <input type="file" id="importInput" accept="application/json" hidden />
         </label>
       </div>
@@ -40,7 +40,7 @@
 
     <main class="main">
       <header class="topbar">
-        <button class="menu-toggle" id="menuToggle">&#9776;</button>
+        <button class="menu-toggle" id="menuToggle"><span data-icon="menu"></span></button>
         <h1 id="viewTitle">Overview</h1>
         <div class="topbar-date" id="topbarDate"></div>
       </header>
@@ -51,21 +51,21 @@
           <div class="panel">
             <div class="panel-header">
               <h2>Today &amp; Upcoming Meetings</h2>
-              <button class="link-btn" data-goto="scheduler">View all &rarr;</button>
+              <button class="link-btn" data-goto="scheduler">View all <span data-icon="arrowRight"></span></button>
             </div>
             <div id="overviewMeetings" class="mini-list"></div>
           </div>
           <div class="panel">
             <div class="panel-header">
               <h2>Active Candidates</h2>
-              <button class="link-btn" data-goto="interviews">View all &rarr;</button>
+              <button class="link-btn" data-goto="interviews">View all <span data-icon="arrowRight"></span></button>
             </div>
             <div id="overviewCandidates" class="mini-list"></div>
           </div>
           <div class="panel">
             <div class="panel-header">
               <h2>Tasks Due Soon</h2>
-              <button class="link-btn" data-goto="tasks">View all &rarr;</button>
+              <button class="link-btn" data-goto="tasks">View all <span data-icon="arrowRight"></span></button>
             </div>
             <div id="overviewTasks" class="mini-list"></div>
           </div>
@@ -83,7 +83,7 @@
             </select>
             <input type="search" id="meetingSearch" placeholder="Search meetings..." />
           </div>
-          <button class="primary-btn" id="addMeetingBtn">+ New Meeting</button>
+          <button class="primary-btn" id="addMeetingBtn"><span data-icon="plus"></span> New Meeting</button>
         </div>
         <div id="meetingList" class="card-list"></div>
       </section>
@@ -104,8 +104,8 @@
             <input type="search" id="candidateSearch" placeholder="Search candidates..." />
           </div>
           <div class="filter-group">
-            <button class="secondary-btn" id="importCandidatesBtn">&#8593; Import Candidates</button>
-            <button class="primary-btn" id="addCandidateBtn">+ New Candidate</button>
+            <button class="secondary-btn" id="importCandidatesBtn"><span data-icon="upload"></span> Import Candidates</button>
+            <button class="primary-btn" id="addCandidateBtn"><span data-icon="plus"></span> New Candidate</button>
           </div>
         </div>
         <div class="pipeline" id="pipelineBoard"></div>
@@ -128,7 +128,7 @@
             </select>
             <input type="search" id="taskSearch" placeholder="Search tasks..." />
           </div>
-          <button class="primary-btn" id="addTaskBtn">+ New Task</button>
+          <button class="primary-btn" id="addTaskBtn"><span data-icon="plus"></span> New Task</button>
         </div>
         <div id="taskList" class="card-list"></div>
       </section>
@@ -141,6 +141,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="js/icons.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/google.js"></script>
   <script src="js/scheduler.js"></script>

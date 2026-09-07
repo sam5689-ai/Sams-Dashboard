@@ -41,6 +41,7 @@ const Toast = {
 
 const App = {
   init() {
+    this.renderStaticIcons();
     this.initNav();
     this.initTheme();
     this.initModalOverlay();
@@ -53,6 +54,13 @@ const App = {
     Tasks.init();
 
     this.refreshOverview();
+  },
+
+  renderStaticIcons() {
+    document.querySelectorAll('[data-icon]').forEach((el) => {
+      const name = el.dataset.icon;
+      if (Icon[name]) el.innerHTML = Icon[name](el.classList.contains('nav-icon') ? 18 : 15);
+    });
   },
 
   initNav() {

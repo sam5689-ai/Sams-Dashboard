@@ -75,14 +75,14 @@ const Tasks = {
             <span class="badge badge-${t.status}" data-toggle="${t.id}" style="cursor:pointer" title="Click to advance status">${statusLabel}</span>
           </div>
           <div class="card-meta">
-            ${t.dueDate ? `<span class="${isOverdue ? 'overdue' : ''}">&#128197; Due ${formatDate(t.dueDate)}</span>` : ''}
-            ${t.category ? `<span>&#127991; ${escapeHtml(t.category)}</span>` : ''}
+            ${t.dueDate ? `<span class="${isOverdue ? 'overdue' : ''}">${Icon.calendar(14)} Due ${formatDate(t.dueDate)}</span>` : ''}
+            ${t.category ? `<span>${Icon.tag(14)} ${escapeHtml(t.category)}</span>` : ''}
           </div>
           ${t.description ? `<div class="card-notes">${escapeHtml(t.description)}</div>` : ''}
         </div>
         <div class="card-actions">
-          <button class="icon-btn" data-edit="${t.id}" title="Edit">&#9998;</button>
-          <button class="icon-btn" data-delete="${t.id}" title="Delete">&#128465;</button>
+          <button class="icon-btn" data-edit="${t.id}" title="Edit">${Icon.edit(15)}</button>
+          <button class="icon-btn" data-delete="${t.id}" title="Delete">${Icon.trash(15)}</button>
         </div>
       </div>
     `;

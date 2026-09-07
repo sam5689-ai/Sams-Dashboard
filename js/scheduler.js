@@ -65,16 +65,16 @@ const Scheduler = {
         <div class="card-main">
           <div class="card-title">${escapeHtml(m.title)} ${m.googleEventId ? '<span class="badge badge-google" title="Synced to Google Calendar">Google Calendar</span>' : ''}</div>
           <div class="card-meta">
-            <span class="${isPast ? 'overdue' : ''}">&#128197; ${dateLabel}${m.time ? ' at ' + m.time : ''}</span>
-            ${m.attendees ? `<span>&#128101; ${escapeHtml(m.attendees)}</span>` : ''}
-            ${m.location ? `<span>&#128205; ${escapeHtml(m.location)}</span>` : ''}
+            <span class="${isPast ? 'overdue' : ''}">${Icon.calendar(14)} ${dateLabel}${m.time ? ' at ' + m.time : ''}</span>
+            ${m.attendees ? `<span>${Icon.users(14)} ${escapeHtml(m.attendees)}</span>` : ''}
+            ${m.location ? `<span>${Icon.mapPin(14)} ${escapeHtml(m.location)}</span>` : ''}
           </div>
-          ${m.meetLink ? `<div class="card-notes"><a href="${escapeAttr(m.meetLink)}" target="_blank" rel="noopener">&#127909; Join Google Meet</a></div>` : ''}
+          ${m.meetLink ? `<div class="card-notes"><a href="${escapeAttr(m.meetLink)}" target="_blank" rel="noopener">${Icon.video(14)} Join Google Meet</a></div>` : ''}
           ${m.notes ? `<div class="card-notes">${escapeHtml(m.notes)}</div>` : ''}
         </div>
         <div class="card-actions">
-          <button class="icon-btn" data-edit="${m.id}" title="Edit">&#9998;</button>
-          <button class="icon-btn" data-delete="${m.id}" title="Delete">&#128465;</button>
+          <button class="icon-btn" data-edit="${m.id}" title="Edit">${Icon.edit(15)}</button>
+          <button class="icon-btn" data-delete="${m.id}" title="Delete">${Icon.trash(15)}</button>
         </div>
       </div>
     `;

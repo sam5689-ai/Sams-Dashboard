@@ -178,10 +178,10 @@ const GoogleCalendar = {
     const btn = document.getElementById('googleConnectBtn');
     if (!btn) return;
     if (this.isConnected()) {
-      btn.innerHTML = '&#10003; Google Connected';
+      btn.innerHTML = `${Icon.check(15)} Google Connected`;
       btn.classList.add('connected');
     } else {
-      btn.innerHTML = '&#128279; Connect Google';
+      btn.innerHTML = `${Icon.link(15)} Connect Google`;
       btn.classList.remove('connected');
     }
   },

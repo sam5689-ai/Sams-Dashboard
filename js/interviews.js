@@ -83,16 +83,16 @@ const Interviews = {
         <div class="card-main">
           <div class="card-title">${escapeHtml(c.name)} <span class="badge ${badgeClass}">${c.stage}</span></div>
           <div class="card-meta">
-            ${c.role ? `<span>&#128188; ${escapeHtml(c.role)}</span>` : ''}
-            ${c.interviewDate ? `<span>&#128197; ${formatDate(c.interviewDate)}${c.interviewTime ? ' ' + c.interviewTime : ''}</span>` : ''}
-            ${c.interviewer ? `<span>&#128100; ${escapeHtml(c.interviewer)}</span>` : ''}
-            ${c.rating ? `<span>&#11088; ${c.rating}/5</span>` : ''}
+            ${c.role ? `<span>${Icon.briefcase(14)} ${escapeHtml(c.role)}</span>` : ''}
+            ${c.interviewDate ? `<span>${Icon.calendar(14)} ${formatDate(c.interviewDate)}${c.interviewTime ? ' ' + c.interviewTime : ''}</span>` : ''}
+            ${c.interviewer ? `<span>${Icon.user(14)} ${escapeHtml(c.interviewer)}</span>` : ''}
+            ${c.rating ? `<span>${Icon.star(14)} ${c.rating}/5</span>` : ''}
           </div>
           ${c.notes ? `<div class="card-notes">${escapeHtml(c.notes)}</div>` : ''}
         </div>
         <div class="card-actions">
-          <button class="icon-btn" data-edit="${c.id}" title="Edit">&#9998;</button>
-          <button class="icon-btn" data-delete="${c.id}" title="Delete">&#128465;</button>
+          <button class="icon-btn" data-edit="${c.id}" title="Edit">${Icon.edit(15)}</button>
+          <button class="icon-btn" data-delete="${c.id}" title="Delete">${Icon.trash(15)}</button>
         </div>
       </div>
     `;
@@ -112,7 +112,7 @@ const Interviews = {
             <div class="pipeline-card" data-open="${c.id}">
               <strong>${escapeHtml(c.name)}</strong>
               <span>${escapeHtml(c.role || '')}</span>
-              ${c.interviewDate ? `<span>&#128197; ${formatDate(c.interviewDate)}</span>` : ''}
+              ${c.interviewDate ? `<span>${Icon.calendar(13)} ${formatDate(c.interviewDate)}</span>` : ''}
             </div>
           `).join('') || '<div class="empty-state" style="padding:8px 0;">Empty</div>'}
         </div>
