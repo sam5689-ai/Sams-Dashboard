@@ -115,6 +115,18 @@ Note: Meta's free test access tokens/numbers are meant for development — messa
 
 The **WhatsApp** tab shows the last 50 messages received. A green checkmark means that message already has a task; clicking an unconverted one calls Claude to extract a title, description, due date, priority, and category, and links the resulting task to the sender's Contact.
 
+### Replying
+
+Each inbound message also has a **Reply** button. Unlike everything else in this integration, sending actually requires a WhatsApp access token — so there's one more setup step:
+
+1. **Get an access token.** The short-lived one from the API Setup / Graph API Explorer page works but expires in a day or so. For anything longer-lived, create a **System User** in Meta Business Settings (Business Settings → Users → System Users → Add), assign it to your WhatsApp app with the `whatsapp_business_messaging` permission, and generate a token from there — these can be issued to not expire.
+2. **Add two environment variables in Vercel:**
+   - `WHATSAPP_ACCESS_TOKEN` — the token from step 1.
+   - `WHATSAPP_PHONE_NUMBER_ID` — visible on the WhatsApp API Setup page (labeled "Phone Number ID" next to your test/business number).
+3. Redeploy.
+
+**The 24-hour rule:** WhatsApp only allows free-form (plain text) replies within 24 hours of the customer's last message. Outside that window, sending will fail with a clear explanation rather than a cryptic API error — at that point WhatsApp requires using a pre-approved message template instead, which this dashboard doesn't currently support (a future addition if needed).
+
 ## Project structure
 
 ```
@@ -124,6 +136,7 @@ api/parse-email.js            Vercel serverless function: calls Claude to turn a
 api/whatsapp-webhook.js       Vercel serverless function: receives WhatsApp messages and logs them
 api/whatsapp-messages.js      Vercel serverless function: returns the recent WhatsApp message log for the Inbox view
 api/parse-whatsapp-message.js Vercel serverless function: calls Claude to turn one WhatsApp message into a task, on demand
+api/send-whatsapp-message.js  Vercel serverless function: sends a free-form WhatsApp reply
 js/storage.js                 localStorage data layer (CRUD + export/import)
 js/contacts.js                Contacts CRM layer: matching/upsert logic + Contacts view
 js/google.js                  Google OAuth (Calendar + Gmail scopes) + generic API request helper

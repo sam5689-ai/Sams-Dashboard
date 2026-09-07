@@ -1,7 +1,7 @@
-// WhatsApp Inbox view: displays recent messages sent to the WhatsApp
-// Business number, logged by api/whatsapp-webhook.js. Task creation is a
-// deliberate, per-message action here — click "Create Task" on the one you
-// want, rather than every message automatically becoming a task.
+// WhatsApp Inbox view: displays recent messages sent to/from the WhatsApp
+// Business number, logged by api/whatsapp-webhook.js (inbound) and
+// api/send-whatsapp-message.js (outbound replies). Task creation and
+// replying are both deliberate, per-message actions here.
 const WhatsAppInbox = {
   messages: [],
   loaded: false,
@@ -57,24 +57,35 @@ const WhatsAppInbox = {
     list.querySelectorAll('[data-make-task]').forEach((btn) =>
       btn.addEventListener('click', () => this.createTask(btn.dataset.makeTask, btn))
     );
+    list.querySelectorAll('[data-reply-to]').forEach((btn) =>
+      btn.addEventListener('click', () => this.openReply(btn.dataset.replyTo, btn.dataset.replyName))
+    );
   },
 
   rowHtml(m) {
-    const sender = m.name || m.from || 'Unknown';
+    const isOutbound = m.direction === 'out';
+    const sender = isOutbound ? 'You' : (m.name || m.from || 'Unknown');
     const alreadyHasTask = this.hasTask(m);
+
     return `
-      <div class="card">
+      <div class="card" ${isOutbound ? 'style="background:var(--accent-soft);"' : ''}>
         <div class="card-main">
-          <div class="card-title">${escapeHtml(sender)}</div>
+          <div class="card-title">
+            ${sender === 'You' ? `<span class="badge badge-google">Sent</span>` : ''}
+            ${escapeHtml(sender)}
+          </div>
           <div class="card-meta">
             <span>${Icon.calendar(14)} ${escapeHtml(this.formatTimestamp(m.timestamp))}</span>
             ${m.from ? `<span>${Icon.phone(14)} ${escapeHtml(m.from)}</span>` : ''}
           </div>
           <div class="card-notes">${escapeHtml(m.text || '')}</div>
         </div>
-        <div class="card-actions">
-          <button class="icon-btn ${alreadyHasTask ? 'connected' : ''}" data-make-task="${escapeAttr(m.id || '')}" title="${alreadyHasTask ? 'Already turned into a task' : 'Turn into a task'}">${Icon.checkSquare(15)}</button>
-        </div>
+        ${!isOutbound ? `
+          <div class="card-actions">
+            <button class="icon-btn" data-reply-to="${escapeAttr(m.from || '')}" data-reply-name="${escapeAttr(m.name || '')}" title="Reply">${Icon.send(15)}</button>
+            <button class="icon-btn ${alreadyHasTask ? 'connected' : ''}" data-make-task="${escapeAttr(m.id || '')}" title="${alreadyHasTask ? 'Already turned into a task' : 'Turn into a task'}">${Icon.checkSquare(15)}</button>
+          </div>
+        ` : ''}
       </div>
     `;
   },
@@ -119,5 +130,52 @@ const WhatsAppInbox = {
       Toast.show(err.message || 'Failed to create task');
       btn.disabled = false;
     }
+  },
+
+  openReply(to, name) {
+    Modal.open(`
+      <h2>Reply to ${escapeHtml(name || to)}</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:-8px;">
+        Free-form replies only work within 24 hours of their last message. Outside that window WhatsApp requires a pre-approved template instead.
+      </p>
+      <form id="whatsappReplyForm">
+        <div class="form-row">
+          <label>Message</label>
+          <textarea name="text" rows="4" required placeholder="Type your reply..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" id="cancelBtn">Cancel</button>
+          <button type="submit" class="primary-btn" id="sendReplyBtn">${Icon.send(15)} Send</button>
+        </div>
+      </form>
+    `);
+
+    document.getElementById('cancelBtn').addEventListener('click', () => Modal.close());
+    document.getElementById('whatsappReplyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = new FormData(e.target).get('text');
+      const sendBtn = document.getElementById('sendReplyBtn');
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+
+      try {
+        const res = await fetch('/api/send-whatsapp-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to, text }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+
+        Modal.close();
+        Toast.show('Reply sent');
+        this.load();
+      } catch (err) {
+        console.error(err);
+        Toast.show(err.message || 'Failed to send reply');
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = `${Icon.send(15)} Send`;
+      }
+    });
   },
 };
