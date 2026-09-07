@@ -53,6 +53,7 @@ const App = {
     Interviews.init();
     Tasks.init();
     Inbox.init();
+    WhatsAppInbox.init();
 
     this.refreshOverview();
     this.initGoogleAutoSync();
@@ -108,10 +109,12 @@ const App = {
       interviews: 'Interview Tracker',
       tasks: 'Task Management',
       inbox: 'Inbox',
+      whatsapp: 'WhatsApp',
     };
     document.getElementById('viewTitle').textContent = titles[view] || view;
     if (view === 'overview') this.refreshOverview();
     if (view === 'inbox') Inbox.ensureLoaded();
+    if (view === 'whatsapp') WhatsAppInbox.ensureLoaded();
   },
 
   initTheme() {

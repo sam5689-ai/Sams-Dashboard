@@ -88,9 +88,17 @@ Because a WhatsApp message can arrive while no browser tab is open (unlike the G
 3. **Add yourself as a test recipient:** in WhatsApp → API Setup, add your own phone number under the test recipients list and verify it with the OTP code sent to your phone. This lets you message the free test WhatsApp Business number Meta provides without needing full business verification.
 4. **Pick a verify token:** make up any random string yourself (e.g. a UUID) — this isn't provided by Meta, you choose it. Add it to Vercel's environment variables as `WHATSAPP_VERIFY_TOKEN`, and redeploy so the webhook function can see it.
 5. **Configure the webhook:** in WhatsApp → Configuration, set the **Callback URL** to `https://<your-vercel-domain>/api/whatsapp-webhook` and the **Verify token** to the same string from step 4. Click Verify and Save, then subscribe to the **messages** webhook field.
-6. **Test it:** from your own phone, send a WhatsApp message to the test number (e.g. "Follow up with the electrician tomorrow about the quote"). Open the dashboard — within a few seconds (or up to 15 minutes if it's not currently open, since it checks periodically) the message should appear as a new task.
+6. **Publish the app:** go to your app's **Publish** page and complete whatever it asks for (usually just a Privacy Policy URL — this repo includes a basic one at `/privacy.html` you can point it to). Real (non-test-button) webhook events are only delivered once the app is published.
+7. **Subscribe the app to your WhatsApp Business Account** — this is the one step that's easy to miss and isn't automatic: configuring the Callback URL only tells the *app* where to send events, it doesn't tell your *WhatsApp Business Account* to forward messages there. Using the [Graph API Explorer](https://developers.facebook.com/tools/explorer/), with your app selected, send a **POST** request to:
+   ```
+   <your-whatsapp-business-account-id>/subscribed_apps
+   ```
+   A successful response looks like `{"success": true}`. Without this step, Meta's own "Test" button (next to each webhook field) will work, but real messages won't — which is a very confusing failure mode since everything else looks correctly configured.
+8. **Test it:** from your own phone, send a WhatsApp message to the test number (e.g. "Follow up with the electrician tomorrow about the quote"). Open the dashboard — within a few seconds (or up to 15 minutes if it's not currently open, since it checks periodically) the message should appear as a new task, and also in the **WhatsApp** tab (see below).
 
 Note: Meta's free test access tokens/numbers are meant for development — messages you send only work from numbers you've explicitly added as test recipients, and a test number's session details can expire, requiring you to revisit the WhatsApp API Setup page occasionally. For long-term personal use this is usually fine since it's just you messaging yourself.
+
+The **WhatsApp** tab shows the last 50 messages received, each with what task (if any) it created — useful for seeing what came in even after it's already been turned into a task, similar to the Gmail Inbox tab.
 
 ## Project structure
 
@@ -98,13 +106,15 @@ Note: Meta's free test access tokens/numbers are meant for development — messa
 index.html               Page shell and layout for all views
 css/styles.css            Design system (light/dark theme aware)
 api/parse-email.js        Vercel serverless function: calls Claude to turn an email into a task
-api/whatsapp-webhook.js   Vercel serverless function: receives WhatsApp messages, queues resulting tasks
+api/whatsapp-webhook.js   Vercel serverless function: receives WhatsApp messages, queues resulting tasks + logs them
 api/pending-tasks.js      Vercel serverless function: dashboard polls this to collect queued WhatsApp tasks
+api/whatsapp-messages.js  Vercel serverless function: returns the recent WhatsApp message log for the Inbox view
 js/storage.js             localStorage data layer (CRUD + export/import)
 js/google.js              Google OAuth (Calendar + Gmail scopes) + generic API request helper
 js/gmail.js               Gmail label lookup, message fetching/decoding, label removal
-js/inbox.js               Inbox view: recent emails + one-click convert to task
+js/inbox.js               Gmail Inbox view: recent emails + one-click convert to task
 js/whatsapp.js            Polls for tasks queued by the WhatsApp webhook
+js/whatsapp-inbox.js      WhatsApp Inbox view: recent messages + what task each created
 js/scheduler.js           Meeting Scheduler view logic
 js/interviews.js          Interview Tracker view logic
 js/tasks.js               Task Management view logic + email-to-task sync

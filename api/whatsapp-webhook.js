@@ -6,6 +6,8 @@
 const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const PENDING_KEY = 'whatsapp:pending_tasks';
+const MESSAGE_LOG_KEY = 'whatsapp:message_log';
+const MESSAGE_LOG_MAX = 50;
 
 async function kvCommand(command) {
   const res = await fetch(KV_URL, {
@@ -93,20 +95,36 @@ module.exports = async (req, res) => {
 
     for (const message of messages) {
       if (message.type !== 'text') continue;
-      try {
-        const text = (message.text && message.text.body) || '';
-        const from = message.from || '';
-        const contact = (value.contacts || []).find((c) => c.wa_id === from);
-        const label = (contact && contact.profile && contact.profile.name) || from;
+      const text = (message.text && message.text.body) || '';
+      const from = message.from || '';
+      const contact = (value.contacts || []).find((c) => c.wa_id === from);
+      const name = (contact && contact.profile && contact.profile.name) || '';
+      const label = name || from;
+      const timestamp = message.timestamp
+        ? new Date(Number(message.timestamp) * 1000).toISOString()
+        : new Date().toISOString();
 
+      let taskTitle = '';
+      try {
         const task = await parseMessageToTask(text, label);
         task.status = 'todo';
+        taskTitle = task.title;
 
         if (KV_URL && KV_TOKEN) {
           await kvCommand(['LPUSH', PENDING_KEY, JSON.stringify(task)]);
         }
       } catch (perMessageErr) {
         console.error('Failed to process one WhatsApp message:', perMessageErr);
+      }
+
+      if (KV_URL && KV_TOKEN) {
+        try {
+          const logEntry = { from, name, text, timestamp, taskTitle };
+          await kvCommand(['LPUSH', MESSAGE_LOG_KEY, JSON.stringify(logEntry)]);
+          await kvCommand(['LTRIM', MESSAGE_LOG_KEY, '0', String(MESSAGE_LOG_MAX - 1)]);
+        } catch (logErr) {
+          console.error('Failed to log WhatsApp message:', logErr);
+        }
       }
     }
 

@@ -34,6 +34,9 @@
         <button class="nav-item" data-view="inbox">
           <span class="nav-icon" data-icon="mail"></span> Inbox
         </button>
+        <button class="nav-item" data-view="whatsapp">
+          <span class="nav-icon" data-icon="messageCircle"></span> WhatsApp
+        </button>
       </nav>
       <div class="sidebar-footer">
         <button id="googleConnectBtn" class="ghost-btn" title="Connect Google Calendar"><span data-icon="link"></span> Connect Google</button>
@@ -156,6 +159,16 @@
         </div>
         <div id="inboxList" class="card-list"></div>
       </section>
+
+      <section class="view" id="view-whatsapp">
+        <div class="toolbar">
+          <div class="filter-group">
+            <span style="color:var(--text-muted);font-size:13px;">Recent messages sent to your WhatsApp Business number.</span>
+          </div>
+          <button class="secondary-btn" id="refreshWhatsAppBtn"><span data-icon="download"></span> Refresh</button>
+        </div>
+        <div id="whatsappList" class="card-list"></div>
+      </section>
     </main>
   </div>
 
@@ -174,6 +187,7 @@
   <script src="js/tasks.js"></script>
   <script src="js/inbox.js"></script>
   <script src="js/whatsapp.js"></script>
+  <script src="js/whatsapp-inbox.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
