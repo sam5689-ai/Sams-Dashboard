@@ -179,28 +179,35 @@ const Scheduler = {
     });
   },
 
+  // Core pull-sync, shared by the manual button and the automatic background sync.
+  async performSync() {
+    const events = await GoogleCalendar.listUpcomingEvents(60);
+    const existing = Store.getAll('meetings');
+    let added = 0;
+    let updated = 0;
+    events.forEach((ev) => {
+      const meetingData = GoogleCalendar.eventToMeeting(ev);
+      const match = existing.find((m) => m.googleEventId === ev.id);
+      if (match) {
+        Store.update('meetings', match.id, meetingData);
+        updated++;
+      } else {
+        Store.add('meetings', meetingData);
+        added++;
+      }
+    });
+    this.render();
+    App.refreshOverview();
+    return { added, updated };
+  },
+
+  // Manual "Sync from Google" button: prompts to (re)connect if needed, always gives feedback.
   syncFromGoogle() {
     const btn = document.getElementById('syncFromGoogleBtn');
     GoogleCalendar.withConnection(async () => {
       if (btn) { btn.disabled = true; btn.innerHTML = `${Icon.download(15)} Syncing…`; }
       try {
-        const events = await GoogleCalendar.listUpcomingEvents(60);
-        const existing = Store.getAll('meetings');
-        let added = 0;
-        let updated = 0;
-        events.forEach((ev) => {
-          const meetingData = GoogleCalendar.eventToMeeting(ev);
-          const match = existing.find((m) => m.googleEventId === ev.id);
-          if (match) {
-            Store.update('meetings', match.id, meetingData);
-            updated++;
-          } else {
-            Store.add('meetings', meetingData);
-            added++;
-          }
-        });
-        this.render();
-        App.refreshOverview();
+        const { added, updated } = await this.performSync();
         Toast.show(`Synced from Google Calendar: ${added} added, ${updated} updated`);
       } catch (err) {
         console.error(err);
@@ -209,6 +216,17 @@ const Scheduler = {
         if (btn) { btn.disabled = false; btn.innerHTML = `${Icon.download(15)} Sync from Google`; }
       }
     });
+  },
+
+  // Automatic background sync: only runs if already signed in (never pops up a
+  // consent prompt on its own), and stays quiet unless something changed.
+  autoSyncIfConnected() {
+    if (!GoogleCalendar.getToken()) return;
+    this.performSync()
+      .then(({ added, updated }) => {
+        if (added || updated) Toast.show(`Google Calendar synced: ${added} added, ${updated} updated`);
+      })
+      .catch((err) => console.warn('Background Google Calendar sync failed', err));
   },
 
   deleteMeeting(id) {

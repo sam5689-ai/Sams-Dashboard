@@ -50,6 +50,8 @@ Once connected, new meetings have a **"Sync to Google Calendar & add a Meet link
 
 Sync also runs the other way: click **Sync from Google** on the Meeting Scheduler toolbar to pull events already on your Google Calendar (next 60 days) into the dashboard. Events already linked to a local meeting are updated in place rather than duplicated, so it's safe to click repeatedly.
 
+Once connected, this pull sync also runs automatically — once when the dashboard loads (only if you're still signed in) and again every 15 minutes while the tab stays open — so you don't normally need to click the button yourself. The one thing that still needs a manual click: your Google sign-in token lasts about an hour and doesn't survive closing the tab, so coming back later (e.g. the next day) may need one click of **Sync from Google** (or **Connect Google**) to reconnect.
+
 The Client ID is stored in `localStorage`; the OAuth access token is stored in `sessionStorage` and expires after about an hour (click **Connect Google** again to refresh it).
 
 ## Project structure
