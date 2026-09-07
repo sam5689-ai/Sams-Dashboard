@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Policy — Sam's Dashboard</title>
+<link rel="icon" href="assets/favicon.ico" sizes="any" />
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f4f5f7;
+    color: #1a1d23;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .updated { color: #6b7280; font-size: 13px; margin-bottom: 32px; }
+  h2 { font-size: 17px; margin-top: 32px; }
+  p, li { font-size: 14.5px; color: #2d3138; }
+  a { color: #4f46e5; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: September 2026</p>
+
+    <p>Sam's Dashboard is a personal productivity tool built for private, individual use — it is not a public product or service offered to third parties. This page exists to satisfy platform requirements (such as Meta's WhatsApp Business Platform) for apps that connect to messaging and calendar services.</p>
+
+    <h2>What this app does</h2>
+    <p>Sam's Dashboard helps its owner (the developer and sole user) manage meetings, candidate interviews, and tasks in one place. It optionally connects to:</p>
+    <ul>
+      <li><strong>Google Calendar and Gmail</strong> — to create/read calendar events and to read specifically labeled emails, using Google's OAuth sign-in flow. Access is limited to the account the owner explicitly signs in with.</li>
+      <li><strong>WhatsApp Business Platform</strong> — to receive messages sent by the owner to their own WhatsApp Business number, which are converted into tasks.</li>
+    </ul>
+
+    <h2>How data is used and stored</h2>
+    <p>Data pulled from these services (meeting details, task text, email/message content) is used solely to populate the dashboard for its owner's own use. Most data is stored locally in the owner's browser (localStorage) and is never transmitted to any third party. A small amount of data in transit (e.g. a message queued from WhatsApp before the dashboard is next opened) is held briefly in a private database controlled by the owner, then cleared once read.</p>
+    <p>Message or email content may be sent to Anthropic's Claude API (an AI service) solely to extract task details (a title, due date, priority). This processing is used only to populate the owner's own dashboard and is not stored by this app beyond that purpose.</p>
+
+    <h2>Data sharing</h2>
+    <p>This app does not sell, rent, or share personal data with any third party, and does not use data for advertising.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about this policy can be directed to the app owner at <a href="mailto:sam@outwork.co.uk">sam@outwork.co.uk</a>.</p>
+  </div>
+</body>
+</html>
