@@ -91,10 +91,20 @@ const Scheduler = {
     `;
   },
 
-  todayStr() {
+  // Rounds up to the next full hour (e.g. 14:23 -> 15:00), rolling over to
+  // the next day if we're already past the last hour of today.
+  nextHourDateTime() {
     const now = new Date();
+    const next = new Date(now);
+    next.setMinutes(0, 0, 0);
+    if (now.getMinutes() > 0 || now.getSeconds() > 0 || now.getMilliseconds() > 0) {
+      next.setHours(next.getHours() + 1);
+    }
     const pad = (n) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    return {
+      date: `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`,
+      time: `${pad(next.getHours())}:00`,
+    };
   },
 
   DURATION_OPTIONS: [
@@ -113,6 +123,7 @@ const Scheduler = {
     const durationOptions = this.DURATION_OPTIONS
       .map((d) => `<option value="${d.value}" ${Number(currentDuration) === d.value ? 'selected' : ''}>${d.label}</option>`)
       .join('');
+    const defaultDateTime = this.nextHourDateTime();
 
     Modal.open(`
       <h2>${title}</h2>
@@ -124,11 +135,11 @@ const Scheduler = {
         <div class="form-row-inline">
           <div class="form-row">
             <label>Date *</label>
-            <input type="date" name="date" required value="${existing ? existing.date : this.todayStr()}" />
+            <input type="date" name="date" required value="${existing ? existing.date : defaultDateTime.date}" />
           </div>
           <div class="form-row">
             <label>Time</label>
-            <input type="time" name="time" value="${existing ? existing.time || '' : ''}" />
+            <input type="time" name="time" value="${existing ? existing.time || '' : defaultDateTime.time}" />
           </div>
           <div class="form-row">
             <label>Duration</label>
