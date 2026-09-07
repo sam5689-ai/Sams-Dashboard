@@ -5,6 +5,8 @@ const Scheduler = {
 
   init() {
     document.getElementById('addMeetingBtn').addEventListener('click', () => this.openForm());
+    const syncBtn = document.getElementById('syncFromGoogleBtn');
+    if (syncBtn) syncBtn.addEventListener('click', () => this.syncFromGoogle());
     document.getElementById('meetingFilter').addEventListener('change', (e) => {
       this.filter = e.target.value;
       this.render();
@@ -174,6 +176,38 @@ const Scheduler = {
           submitBtn.textContent = existing ? 'Save Changes' : 'Add Meeting';
         }
       });
+    });
+  },
+
+  syncFromGoogle() {
+    const btn = document.getElementById('syncFromGoogleBtn');
+    GoogleCalendar.withConnection(async () => {
+      if (btn) { btn.disabled = true; btn.innerHTML = `${Icon.download(15)} Syncing…`; }
+      try {
+        const events = await GoogleCalendar.listUpcomingEvents(60);
+        const existing = Store.getAll('meetings');
+        let added = 0;
+        let updated = 0;
+        events.forEach((ev) => {
+          const meetingData = GoogleCalendar.eventToMeeting(ev);
+          const match = existing.find((m) => m.googleEventId === ev.id);
+          if (match) {
+            Store.update('meetings', match.id, meetingData);
+            updated++;
+          } else {
+            Store.add('meetings', meetingData);
+            added++;
+          }
+        });
+        this.render();
+        App.refreshOverview();
+        Toast.show(`Synced from Google Calendar: ${added} added, ${updated} updated`);
+      } catch (err) {
+        console.error(err);
+        Toast.show(err.message || 'Failed to sync from Google Calendar');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = `${Icon.download(15)} Sync from Google`; }
+      }
     });
   },
 

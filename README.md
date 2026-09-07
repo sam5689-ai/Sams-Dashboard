@@ -48,6 +48,8 @@ The Meeting Scheduler can create real Google Calendar events with an auto-genera
 
 Once connected, new meetings have a **"Sync to Google Calendar & add a Meet link"** checkbox (on by default while connected). Synced meetings show a *Google Calendar* badge and a **Join Google Meet** link on their card; editing keeps the linked event in sync, and deleting a synced meeting also removes it from your Google Calendar. Only comma-separated entries that look like email addresses in the Attendees field are invited on Google's side.
 
+Sync also runs the other way: click **Sync from Google** on the Meeting Scheduler toolbar to pull events already on your Google Calendar (next 60 days) into the dashboard. Events already linked to a local meeting are updated in place rather than duplicated, so it's safe to click repeatedly.
+
 The Client ID is stored in `localStorage`; the OAuth access token is stored in `sessionStorage` and expires after about an hour (click **Connect Google** again to refresh it).
 
 ## Project structure

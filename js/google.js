@@ -278,4 +278,46 @@ const GoogleCalendar = {
       console.warn('Failed to delete Google Calendar event', e);
     }
   },
+
+  async listUpcomingEvents(daysAhead) {
+    const timeMin = new Date().toISOString();
+    const timeMax = new Date(Date.now() + (daysAhead || 60) * 24 * 3600000).toISOString();
+    const params = new URLSearchParams({
+      timeMin,
+      timeMax,
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '100',
+    });
+    const result = await this.apiRequest('GET', `/calendars/primary/events?${params.toString()}`);
+    return (result.items || []).filter((e) => e.status !== 'cancelled');
+  },
+
+  eventToMeeting(event) {
+    const pad = (n) => String(n).padStart(2, '0');
+    let date = '';
+    let time = '';
+    if (event.start && event.start.dateTime) {
+      const d = new Date(event.start.dateTime);
+      date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } else if (event.start && event.start.date) {
+      date = event.start.date;
+    }
+
+    const attendees = (event.attendees || [])
+      .filter((a) => !a.self)
+      .map((a) => a.displayName || a.email)
+      .join(', ');
+
+    return {
+      title: event.summary || '(No title)',
+      date,
+      time,
+      attendees,
+      location: event.location || '',
+      notes: event.description || '',
+      ...this.extractMeetInfo(event),
+    };
+  },
 };
