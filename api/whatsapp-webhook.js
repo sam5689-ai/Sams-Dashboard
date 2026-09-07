@@ -108,6 +108,8 @@ module.exports = async (req, res) => {
       try {
         const task = await parseMessageToTask(text, label);
         task.status = 'todo';
+        task.contactPhone = from;
+        task.contactName = name;
         taskTitle = task.title;
 
         if (KV_URL && KV_TOKEN) {

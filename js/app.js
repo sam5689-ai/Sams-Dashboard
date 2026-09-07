@@ -48,6 +48,7 @@ const App = {
     this.initExportImport();
     this.updateDate();
 
+    Contacts.init();
     GoogleCalendar.init();
     Scheduler.init();
     Interviews.init();
@@ -127,6 +128,7 @@ const App = {
     document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
     const titles = {
       overview: 'Overview',
+      contacts: 'Contacts',
       scheduler: 'Meeting Scheduler',
       interviews: 'Interview Tracker',
       tasks: 'Task Management',
@@ -135,6 +137,7 @@ const App = {
     };
     document.getElementById('viewTitle').textContent = titles[view] || view;
     if (view === 'overview') this.refreshOverview();
+    if (view === 'contacts') Contacts.render();
     if (view === 'inbox') Inbox.ensureLoaded();
     if (view === 'whatsapp') WhatsAppInbox.ensureLoaded();
   },

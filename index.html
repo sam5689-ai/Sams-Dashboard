@@ -24,6 +24,9 @@
         <button class="nav-item active" data-view="overview">
           <span class="nav-icon" data-icon="grid"></span> Overview
         </button>
+        <button class="nav-item" data-view="contacts">
+          <span class="nav-icon" data-icon="user"></span> Contacts
+        </button>
         <button class="nav-item" data-view="scheduler">
           <span class="nav-icon" data-icon="calendar"></span> Meeting Scheduler
         </button>
@@ -83,6 +86,16 @@
             <div id="overviewTasks" class="mini-list"></div>
           </div>
         </div>
+      </section>
+
+      <section class="view" id="view-contacts">
+        <div class="toolbar">
+          <div class="filter-group">
+            <input type="search" id="contactSearch" placeholder="Search contacts..." />
+          </div>
+          <button class="primary-btn" id="addContactBtn"><span data-icon="plus"></span> New Contact</button>
+        </div>
+        <div id="contactsList" class="card-list"></div>
       </section>
 
       <section class="view" id="view-scheduler">
@@ -182,6 +195,7 @@
 
   <script src="js/icons.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/contacts.js"></script>
   <script src="js/google.js"></script>
   <script src="js/gmail.js"></script>
   <script src="js/scheduler.js"></script>

@@ -4,6 +4,7 @@ const Store = {
     meetings: 'dashboard.meetings',
     candidates: 'dashboard.candidates',
     tasks: 'dashboard.tasks',
+    contacts: 'dashboard.contacts',
     theme: 'dashboard.theme',
   },
 
@@ -65,6 +66,7 @@ const Store = {
       meetings: this.getAll('meetings'),
       candidates: this.getAll('candidates'),
       tasks: this.getAll('tasks'),
+      contacts: this.getAll('contacts'),
       exportedAt: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -82,5 +84,6 @@ const Store = {
     if (json.meetings) this.save('meetings', json.meetings);
     if (json.candidates) this.save('candidates', json.candidates);
     if (json.tasks) this.save('tasks', json.tasks);
+    if (json.contacts) this.save('contacts', json.contacts);
   },
 };

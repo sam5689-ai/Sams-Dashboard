@@ -1,12 +1,25 @@
 # Sam's Dashboard
 
-A personal dashboard combining three tools in one place:
+A personal CRM for running the business day-to-day — unifying WhatsApp, email, meetings, and hiring into one place:
 
-- **Meeting Scheduler** — schedule meetings with date/time, attendees, location, and notes; filter by today / upcoming / past.
+- **Contacts** — the CRM backbone. Every person seen via a candidate record, a meeting, a labeled email, or a WhatsApp message is automatically linked into one Contact, so their communications, meetings, and tasks all show up together regardless of which channel they came through.
+- **Meeting Scheduler** — schedule meetings with date/time, attendees, location, and notes; synced with Google Calendar with auto-generated Meet links; filter by today / upcoming / past.
 - **Candidate Interview Tracker** — track candidates through a hiring pipeline (Screening → Phone Interview → Technical → Onsite → Offer → Hired/Rejected) with a kanban-style board or filtered list view.
-- **Task Management** — track tasks with priority, status, due dates, and categories; click a status badge to cycle it forward.
+- **Task Management** — track tasks with priority, status, due dates, and categories; click a status badge to cycle it forward. Tasks are also created automatically from labeled emails and WhatsApp messages.
+- **Inbox** and **WhatsApp** tabs — read Gmail and see recent WhatsApp messages without leaving the dashboard.
 
 The **Overview** tab shows at-a-glance stats plus your next meetings, active candidates, and soonest-due tasks.
+
+## Contacts (the CRM layer)
+
+Contacts aren't something you maintain by hand — they build themselves as you use the rest of the dashboard:
+
+- Adding or importing a **candidate** with a contact email/phone creates or updates a Contact.
+- A **labeled email** turned into a task links that task to the sender's Contact.
+- A **WhatsApp message** turned into a task links that task to the sender's Contact.
+- **Meetings** are matched to a Contact by attendee name (a simple text match, not a hard link).
+
+Matching works by email or phone first; if neither matches an existing Contact, it falls back to an exact name match (so the same person showing up on a new channel — say, WhatsApp, after only ever emailing you — merges into their existing record instead of creating a duplicate). Click any Contact to see their linked candidate record, related tasks, related meetings, and recent WhatsApp messages all in one place, and to edit their name/notes.
 
 ## Running it
 
@@ -110,6 +123,7 @@ api/whatsapp-webhook.js   Vercel serverless function: receives WhatsApp messages
 api/pending-tasks.js      Vercel serverless function: dashboard polls this to collect queued WhatsApp tasks
 api/whatsapp-messages.js  Vercel serverless function: returns the recent WhatsApp message log for the Inbox view
 js/storage.js             localStorage data layer (CRUD + export/import)
+js/contacts.js            Contacts CRM layer: matching/upsert logic + Contacts view
 js/google.js              Google OAuth (Calendar + Gmail scopes) + generic API request helper
 js/gmail.js               Gmail label lookup, message fetching/decoding, label removal
 js/inbox.js               Gmail Inbox view: recent emails + one-click convert to task

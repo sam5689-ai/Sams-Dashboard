@@ -187,6 +187,17 @@ const Interviews = {
     document.getElementById('candidateForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.target).entries());
+
+      if (data.name) {
+        const contactField = (data.contact || '').trim();
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactField);
+        Contacts.upsert({
+          name: data.name,
+          email: isEmail ? contactField : '',
+          phone: !isEmail ? contactField : '',
+        });
+      }
+
       if (existing) {
         Store.update('candidates', existing.id, data);
         Toast.show('Candidate updated');
@@ -344,7 +355,18 @@ const Interviews = {
         Toast.show('Could not find any candidate rows to import');
         return;
       }
-      candidates.forEach((c) => Store.add('candidates', c));
+      candidates.forEach((c) => {
+        if (c.name) {
+          const contactField = (c.contact || '').trim();
+          const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactField);
+          Contacts.upsert({
+            name: c.name,
+            email: isEmail ? contactField : '',
+            phone: !isEmail ? contactField : '',
+          });
+        }
+        Store.add('candidates', c);
+      });
       Modal.close();
       this.render();
       App.refreshOverview();

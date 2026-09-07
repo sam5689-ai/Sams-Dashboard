@@ -190,6 +190,16 @@ const Tasks = {
     return res.json();
   },
 
+  // Splits a raw email "From" header like `"Jordan Lee" <jordan@x.com>` into
+  // its display name and address, for linking the task to a Contact.
+  parseFromHeader(from) {
+    if (!from) return { name: '', email: '' };
+    const match = from.match(/^"?([^"<]*)"?\s*<([^>]+)>$/);
+    if (match) return { name: match[1].trim(), email: match[2].trim().toLowerCase() };
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from.trim())) return { name: '', email: from.trim().toLowerCase() };
+    return { name: from.trim(), email: '' };
+  },
+
   // Core email sync, shared by the manual button and the automatic background sync.
   async performEmailSync() {
     const labelId = await Gmail.ensureLabelId();
@@ -198,6 +208,8 @@ const Tasks = {
     for (const id of ids) {
       const email = await Gmail.getMessage(id);
       const parsed = await this.parseEmailToTask(email);
+      const { name, email: senderEmail } = this.parseFromHeader(email.from);
+      if (senderEmail) Contacts.upsert({ name, email: senderEmail });
       Store.add('tasks', {
         title: parsed.title,
         description: parsed.description,
@@ -205,6 +217,7 @@ const Tasks = {
         priority: parsed.priority,
         status: 'todo',
         category: parsed.category || 'Email',
+        contactEmail: senderEmail || '',
       });
       await Gmail.removeLabel(id, labelId);
       added++;

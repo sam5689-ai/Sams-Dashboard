@@ -12,7 +12,10 @@ const WhatsAppSync = {
       const tasks = data.tasks || [];
       if (!tasks.length) return;
 
-      tasks.forEach((t) => Store.add('tasks', t));
+      tasks.forEach((t) => {
+        if (t.contactPhone) Contacts.upsert({ name: t.contactName, phone: t.contactPhone });
+        Store.add('tasks', t);
+      });
       Tasks.render();
       App.refreshOverview();
       Toast.show(`Imported ${tasks.length} task${tasks.length === 1 ? '' : 's'} from WhatsApp`);
