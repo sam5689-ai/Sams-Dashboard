@@ -1,7 +1,8 @@
 // Vercel serverless function: returns the recent WhatsApp message log for
-// the Inbox view. Unlike pending-tasks, this is read-only and doesn't clear
-// anything — messages stay visible across visits (capped to the most recent
-// 50 by the webhook that writes them).
+// the Inbox view. Read-only and doesn't clear anything — messages stay
+// visible across visits (capped to the most recent 50 by the webhook that
+// writes them). Turning one into a task is a separate, on-demand action
+// (see api/parse-whatsapp-message.js).
 const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const MESSAGE_LOG_KEY = 'whatsapp:message_log';

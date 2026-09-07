@@ -1,7 +1,7 @@
 // WhatsApp Inbox view: displays recent messages sent to the WhatsApp
-// Business number, logged by api/whatsapp-webhook.js. Read-only — the
-// actual task creation already happens automatically (see whatsapp.js /
-// api/pending-tasks.js), this is just for visibility into what came in.
+// Business number, logged by api/whatsapp-webhook.js. Task creation is a
+// deliberate, per-message action here — click "Create Task" on the one you
+// want, rather than every message automatically becoming a task.
 const WhatsAppInbox = {
   messages: [],
   loaded: false,
@@ -41,6 +41,12 @@ const WhatsAppInbox = {
     }
   },
 
+  // A message already has a task if some task in the store was created from it.
+  hasTask(message) {
+    if (!message.id) return false;
+    return Store.getAll('tasks').some((t) => t.whatsappMessageId === message.id);
+  },
+
   render() {
     const list = document.getElementById('whatsappList');
     if (!this.messages.length) {
@@ -48,10 +54,14 @@ const WhatsAppInbox = {
       return;
     }
     list.innerHTML = this.messages.map((m) => this.rowHtml(m)).join('');
+    list.querySelectorAll('[data-make-task]').forEach((btn) =>
+      btn.addEventListener('click', () => this.createTask(btn.dataset.makeTask, btn))
+    );
   },
 
   rowHtml(m) {
     const sender = m.name || m.from || 'Unknown';
+    const alreadyHasTask = this.hasTask(m);
     return `
       <div class="card">
         <div class="card-main">
@@ -61,9 +71,53 @@ const WhatsAppInbox = {
             ${m.from ? `<span>${Icon.phone(14)} ${escapeHtml(m.from)}</span>` : ''}
           </div>
           <div class="card-notes">${escapeHtml(m.text || '')}</div>
-          ${m.taskTitle ? `<div class="card-notes"><span class="badge badge-google">Task created</span> ${escapeHtml(m.taskTitle)}</div>` : ''}
+        </div>
+        <div class="card-actions">
+          <button class="icon-btn ${alreadyHasTask ? 'connected' : ''}" data-make-task="${escapeAttr(m.id || '')}" title="${alreadyHasTask ? 'Already turned into a task' : 'Turn into a task'}">${Icon.checkSquare(15)}</button>
         </div>
       </div>
     `;
+  },
+
+  async createTask(messageId, btn) {
+    const message = this.messages.find((m) => m.id === messageId);
+    if (!message) return;
+
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/parse-whatsapp-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: message.text, from: message.name || message.from }),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Task creation failed (${res.status})${errText ? ': ' + errText : ''}`);
+      }
+      const parsed = await res.json();
+
+      if (message.from) Contacts.upsert({ name: message.name, phone: message.from });
+
+      Store.add('tasks', {
+        title: parsed.title,
+        description: parsed.description,
+        dueDate: parsed.dueDate,
+        priority: parsed.priority,
+        status: 'todo',
+        category: parsed.category || 'WhatsApp',
+        contactPhone: message.from || '',
+        contactName: message.name || '',
+        whatsappMessageId: message.id || '',
+      });
+
+      Tasks.render();
+      App.refreshOverview();
+      this.render();
+      Toast.show(`Created task: ${parsed.title}`);
+    } catch (err) {
+      console.error(err);
+      Toast.show(err.message || 'Failed to create task');
+      btn.disabled = false;
+    }
   },
 };

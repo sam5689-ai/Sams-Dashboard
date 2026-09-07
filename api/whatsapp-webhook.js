@@ -1,11 +1,11 @@
-// Vercel serverless function: receives WhatsApp Cloud API webhook events,
-// turns message text into a task via Claude, and queues it in a small
-// Redis store (Vercel KV / Upstash) for the dashboard to pick up next time
-// it's open. This is receive-only — no WhatsApp access token is needed
-// since we never call the Graph API to send anything back.
+// Vercel serverless function: receives WhatsApp Cloud API webhook events
+// and logs each message to a small Redis store (Vercel KV / Upstash) for
+// the WhatsApp Inbox view to display. Turning a message into a task is a
+// manual, on-demand action from that view (see api/parse-whatsapp-message.js)
+// rather than automatic — this endpoint's only job is to capture messages
+// as they arrive, since it can fire while no browser tab is open.
 const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const PENDING_KEY = 'whatsapp:pending_tasks';
 const MESSAGE_LOG_KEY = 'whatsapp:message_log';
 const MESSAGE_LOG_MAX = 50;
 
@@ -17,52 +17,6 @@ async function kvCommand(command) {
   });
   if (!res.ok) throw new Error(`KV error (${res.status}): ${await res.text()}`);
   return res.json();
-}
-
-async function parseMessageToTask(text, from) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('Server is missing ANTHROPIC_API_KEY');
-
-  const today = new Date().toISOString().slice(0, 10);
-  const prompt = `You convert a short WhatsApp message into a single actionable task for a personal work dashboard (meetings, hiring, and to-dos).
-
-Today's date is ${today}.
-Message from: ${from || 'unknown'}
-Message text:
-${(text || '').slice(0, 2000)}
-
-Reply with ONLY a JSON object (no markdown fences, no explanation) in exactly this shape:
-{"title": "short task title", "description": "a short 1-2 sentence summary of what needs doing, in your own words", "dueDate": "YYYY-MM-DD, or empty string if no date is implied", "priority": "high" | "medium" | "low", "category": "short category like Hiring, Admin, Follow-up"}`;
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-
-  if (!res.ok) throw new Error(`Anthropic API error: ${await res.text()}`);
-
-  const data = await res.json();
-  const textOut = (data.content && data.content[0] && data.content[0].text) || '{}';
-  const jsonMatch = textOut.match(/\{[\s\S]*\}/);
-  const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : textOut);
-
-  const truncate = (s, max) => (typeof s === 'string' && s.length > max ? s.slice(0, max).trim() + '…' : s || '');
-  return {
-    title: truncate(parsed.title || 'WhatsApp task', 120),
-    description: truncate(parsed.description, 400),
-    dueDate: parsed.dueDate || '',
-    priority: ['high', 'medium', 'low'].includes(parsed.priority) ? parsed.priority : 'medium',
-    category: truncate(parsed.category || 'WhatsApp', 40),
-  };
 }
 
 module.exports = async (req, res) => {
@@ -86,7 +40,7 @@ module.exports = async (req, res) => {
   }
 
   // Always acknowledge with 200 so Meta doesn't retry/disable the webhook,
-  // even if something below fails for one message.
+  // even if something below fails.
   try {
     const entry = (req.body && req.body.entry && req.body.entry[0]) || {};
     const change = (entry.changes && entry.changes[0]) || {};
@@ -99,29 +53,13 @@ module.exports = async (req, res) => {
       const from = message.from || '';
       const contact = (value.contacts || []).find((c) => c.wa_id === from);
       const name = (contact && contact.profile && contact.profile.name) || '';
-      const label = name || from;
       const timestamp = message.timestamp
         ? new Date(Number(message.timestamp) * 1000).toISOString()
         : new Date().toISOString();
 
-      let taskTitle = '';
-      try {
-        const task = await parseMessageToTask(text, label);
-        task.status = 'todo';
-        task.contactPhone = from;
-        task.contactName = name;
-        taskTitle = task.title;
-
-        if (KV_URL && KV_TOKEN) {
-          await kvCommand(['LPUSH', PENDING_KEY, JSON.stringify(task)]);
-        }
-      } catch (perMessageErr) {
-        console.error('Failed to process one WhatsApp message:', perMessageErr);
-      }
-
       if (KV_URL && KV_TOKEN) {
         try {
-          const logEntry = { from, name, text, timestamp, taskTitle };
+          const logEntry = { id: message.id || '', from, name, text, timestamp };
           await kvCommand(['LPUSH', MESSAGE_LOG_KEY, JSON.stringify(logEntry)]);
           await kvCommand(['LTRIM', MESSAGE_LOG_KEY, '0', String(MESSAGE_LOG_MAX - 1)]);
         } catch (logErr) {

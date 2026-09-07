@@ -88,11 +88,13 @@ This only works on the deployed Vercel site, not when running the dashboard via 
 
 The **Inbox** tab shows your 20 most recent Gmail messages (sender, subject, snippet, date, unread status) using the same Google connection as the calendar and email-to-task features — no extra setup needed once those are connected. Click any email to read its full content right in the dashboard (marks it read in Gmail too, just like opening it there would). Each row also has an **Open in Gmail** link and a checkmark button that applies the `ToDashboard` label and immediately runs the email-to-task sync on it, so you can turn any inbox email into a task in one click without leaving the dashboard. A green checkmark means that email is already queued.
 
-## WhatsApp-to-task
+## WhatsApp Inbox and WhatsApp-to-task
 
-Send yourself a WhatsApp message and it becomes a task — same idea as the email feature, but arriving through Meta's official WhatsApp Business Cloud API rather than Gmail. This is receive-only: the dashboard never sends WhatsApp messages, so no long-lived WhatsApp access token is needed, only a webhook.
+The **WhatsApp** tab shows recent messages sent to your WhatsApp Business number, arriving through Meta's official WhatsApp Business Cloud API. This is receive-only: the dashboard never sends WhatsApp messages, so no long-lived WhatsApp access token is needed, only a webhook.
 
-Because a WhatsApp message can arrive while no browser tab is open (unlike the Gmail flow, which the browser polls directly), this feature needs one small piece of shared storage so the message isn't lost: a free Redis-backed store from Vercel's Storage marketplace.
+Unlike email-to-task, WhatsApp messages don't automatically become tasks — you browse the messages and click **Create Task** on the ones you actually want turned into one, same idea as the Gmail Inbox tab. This avoids cluttering Tasks with every casual message.
+
+Because a WhatsApp message can arrive while no browser tab is open (unlike the Gmail flow, which the browser polls directly), this feature needs one small piece of shared storage so the message log isn't lost: a free Redis-backed store from Vercel's Storage marketplace.
 
 **One-time setup:**
 
@@ -107,28 +109,27 @@ Because a WhatsApp message can arrive while no browser tab is open (unlike the G
    <your-whatsapp-business-account-id>/subscribed_apps
    ```
    A successful response looks like `{"success": true}`. Without this step, Meta's own "Test" button (next to each webhook field) will work, but real messages won't — which is a very confusing failure mode since everything else looks correctly configured.
-8. **Test it:** from your own phone, send a WhatsApp message to the test number (e.g. "Follow up with the electrician tomorrow about the quote"). Open the dashboard — within a few seconds (or up to 15 minutes if it's not currently open, since it checks periodically) the message should appear as a new task, and also in the **WhatsApp** tab (see below).
+8. **Test it:** from your own phone, send a WhatsApp message to the test number (e.g. "Follow up with the electrician tomorrow about the quote"). Open the dashboard's **WhatsApp** tab — within a few seconds (or up to a minute or so) the message should appear in the list. Click the checkmark button on it to turn it into a task.
 
 Note: Meta's free test access tokens/numbers are meant for development — messages you send only work from numbers you've explicitly added as test recipients, and a test number's session details can expire, requiring you to revisit the WhatsApp API Setup page occasionally. For long-term personal use this is usually fine since it's just you messaging yourself.
 
-The **WhatsApp** tab shows the last 50 messages received, each with what task (if any) it created — useful for seeing what came in even after it's already been turned into a task, similar to the Gmail Inbox tab.
+The **WhatsApp** tab shows the last 50 messages received. A green checkmark means that message already has a task; clicking an unconverted one calls Claude to extract a title, description, due date, priority, and category, and links the resulting task to the sender's Contact.
 
 ## Project structure
 
 ```
 index.html               Page shell and layout for all views
 css/styles.css            Design system (light/dark theme aware)
-api/parse-email.js        Vercel serverless function: calls Claude to turn an email into a task
-api/whatsapp-webhook.js   Vercel serverless function: receives WhatsApp messages, queues resulting tasks + logs them
-api/pending-tasks.js      Vercel serverless function: dashboard polls this to collect queued WhatsApp tasks
-api/whatsapp-messages.js  Vercel serverless function: returns the recent WhatsApp message log for the Inbox view
-js/storage.js             localStorage data layer (CRUD + export/import)
-js/contacts.js            Contacts CRM layer: matching/upsert logic + Contacts view
-js/google.js              Google OAuth (Calendar + Gmail scopes) + generic API request helper
-js/gmail.js               Gmail label lookup, message fetching/decoding, label removal
-js/inbox.js               Gmail Inbox view: recent emails + one-click convert to task
-js/whatsapp.js            Polls for tasks queued by the WhatsApp webhook
-js/whatsapp-inbox.js      WhatsApp Inbox view: recent messages + what task each created
+api/parse-email.js            Vercel serverless function: calls Claude to turn an email into a task
+api/whatsapp-webhook.js       Vercel serverless function: receives WhatsApp messages and logs them
+api/whatsapp-messages.js      Vercel serverless function: returns the recent WhatsApp message log for the Inbox view
+api/parse-whatsapp-message.js Vercel serverless function: calls Claude to turn one WhatsApp message into a task, on demand
+js/storage.js                 localStorage data layer (CRUD + export/import)
+js/contacts.js                Contacts CRM layer: matching/upsert logic + Contacts view
+js/google.js                  Google OAuth (Calendar + Gmail scopes) + generic API request helper
+js/gmail.js                   Gmail label lookup, message fetching/decoding, label removal
+js/inbox.js                   Gmail Inbox view: recent emails + one-click convert to task
+js/whatsapp-inbox.js          WhatsApp Inbox view: recent messages + click-to-create-task
 js/scheduler.js           Meeting Scheduler view logic
 js/interviews.js          Interview Tracker view logic
 js/tasks.js               Task Management view logic + email-to-task sync
