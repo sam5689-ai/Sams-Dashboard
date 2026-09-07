@@ -24,6 +24,17 @@ Or just open `index.html` directly in a browser.
 
 All data is stored locally in your browser via `localStorage` — nothing leaves your machine (except meetings you explicitly sync to Google Calendar, see below). Use the **Export** button in the sidebar to download a JSON backup, and **Import** to restore it (or move data between browsers/devices).
 
+## Importing candidates without an API
+
+Many hiring sites (like Wuzzuf) don't offer employers a public API. The **Import Candidates** button on the Interview Tracker works around that with no API needed:
+
+1. On the hiring site's dashboard, select the applicant table (name, role, status, contact, etc.) and copy it (or download a CSV/Excel export if one's offered).
+2. Click **Import Candidates**, paste the copied data (or upload the CSV file), and click **Import**.
+3. Columns are auto-detected by header name — `Name`/`Candidate`, `Role`/`Job Title`, `Status`/`Stage`, `Email`/`Phone`/`Contact`, `Interview Date`/`Applied Date`, `Interviewer`, `Rating`, `Notes` all match common variants. Status values like "Shortlisted", "Interview", "Offered", "Rejected" are mapped onto the pipeline stages automatically.
+4. If no header row is recognized, the first four columns are assumed to be Name, Role, Contact, and Notes.
+
+This works with anything copy-pasted from a webpage table, Excel, or a plain CSV — no login credentials or scraping involved, since you're just pasting data you already see on your own screen.
+
 ## Google Calendar / Google Meet sync
 
 The Meeting Scheduler can create real Google Calendar events with an auto-generated Google Meet link, using Google's own sign-in flow directly from your browser — no backend or server-side secret involved. To enable it, you need a free OAuth Client ID from your own Google Cloud project (takes ~2 minutes):
