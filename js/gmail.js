@@ -87,6 +87,24 @@ const Gmail = {
     return text.slice(0, cutIndex).trim();
   },
 
+  // Full message for reading — unlike getMessage(), this keeps quoted/thread
+  // history intact since a reader should show the email as it actually reads.
+  async getFullMessageForReading(id) {
+    const msg = await GoogleCalendar.rawRequest('GET', `${this.API_BASE}/messages/${id}?format=full`);
+    const headers = (msg.payload && msg.payload.headers) || [];
+    const getHeader = (name) => (headers.find((h) => h.name.toLowerCase() === name.toLowerCase()) || {}).value || '';
+    return {
+      id: msg.id,
+      threadId: msg.threadId,
+      subject: getHeader('Subject') || '(No subject)',
+      from: getHeader('From'),
+      to: getHeader('To'),
+      date: getHeader('Date'),
+      body: this.extractBody(msg.payload),
+      labelIds: msg.labelIds || [],
+    };
+  },
+
   async getMessage(id) {
     const msg = await GoogleCalendar.rawRequest('GET', `${this.API_BASE}/messages/${id}?format=full`);
     const headers = (msg.payload && msg.payload.headers) || [];

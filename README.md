@@ -73,7 +73,7 @@ This only works on the deployed Vercel site, not when running the dashboard via 
 
 ## Inbox
 
-The **Inbox** tab shows your 20 most recent Gmail messages (sender, subject, snippet, date, unread status) using the same Google connection as the calendar and email-to-task features — no extra setup needed once those are connected. Each email has an **Open in Gmail** link and a checkmark button that applies the `ToDashboard` label and immediately runs the email-to-task sync on it, so you can turn any inbox email into a task in one click without leaving the dashboard. A green checkmark means that email is already queued.
+The **Inbox** tab shows your 20 most recent Gmail messages (sender, subject, snippet, date, unread status) using the same Google connection as the calendar and email-to-task features — no extra setup needed once those are connected. Click any email to read its full content right in the dashboard (marks it read in Gmail too, just like opening it there would). Each row also has an **Open in Gmail** link and a checkmark button that applies the `ToDashboard` label and immediately runs the email-to-task sync on it, so you can turn any inbox email into a task in one click without leaving the dashboard. A green checkmark means that email is already queued.
 
 ## Project structure
 
