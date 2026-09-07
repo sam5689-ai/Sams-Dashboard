@@ -71,6 +71,10 @@ Label an email in Gmail and it turns into a task automatically — no email forw
 
 This only works on the deployed Vercel site, not when running the dashboard via a plain local file server, since it needs the `/api/parse-email` function to be live.
 
+## Inbox
+
+The **Inbox** tab shows your 20 most recent Gmail messages (sender, subject, snippet, date, unread status) using the same Google connection as the calendar and email-to-task features — no extra setup needed once those are connected. Each email has an **Open in Gmail** link and a checkmark button that applies the `ToDashboard` label and immediately runs the email-to-task sync on it, so you can turn any inbox email into a task in one click without leaving the dashboard. A green checkmark means that email is already queued.
+
 ## Project structure
 
 ```
@@ -80,6 +84,7 @@ api/parse-email.js   Vercel serverless function: calls Claude to turn an email i
 js/storage.js        localStorage data layer (CRUD + export/import)
 js/google.js         Google OAuth (Calendar + Gmail scopes) + generic API request helper
 js/gmail.js           Gmail label lookup, message fetching/decoding, label removal
+js/inbox.js           Inbox view: recent emails + one-click convert to task
 js/scheduler.js      Meeting Scheduler view logic
 js/interviews.js     Interview Tracker view logic
 js/tasks.js          Task Management view logic + email-to-task sync

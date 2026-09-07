@@ -106,4 +106,33 @@ const Gmail = {
       removeLabelIds: [labelId],
     });
   },
+
+  async addLabel(messageId, labelId) {
+    await GoogleCalendar.rawRequest('POST', `${this.API_BASE}/messages/${messageId}/modify`, {
+      addLabelIds: [labelId],
+    });
+  },
+
+  async listInboxMessageIds(maxResults) {
+    const result = await GoogleCalendar.rawRequest('GET', `${this.API_BASE}/messages?labelIds=INBOX&maxResults=${maxResults || 20}`);
+    return (result.messages || []).map((m) => m.id);
+  },
+
+  // Lightweight summary for list views — headers + snippet only, no full body.
+  async getMessageSummary(id) {
+    const query = 'format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date';
+    const msg = await GoogleCalendar.rawRequest('GET', `${this.API_BASE}/messages/${id}?${query}`);
+    const headers = (msg.payload && msg.payload.headers) || [];
+    const getHeader = (name) => (headers.find((h) => h.name.toLowerCase() === name.toLowerCase()) || {}).value || '';
+    return {
+      id: msg.id,
+      threadId: msg.threadId,
+      subject: getHeader('Subject') || '(No subject)',
+      from: getHeader('From'),
+      date: getHeader('Date'),
+      snippet: msg.snippet || '',
+      labelIds: msg.labelIds || [],
+      unread: (msg.labelIds || []).includes('UNREAD'),
+    };
+  },
 };

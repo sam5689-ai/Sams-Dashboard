@@ -52,6 +52,7 @@ const App = {
     Scheduler.init();
     Interviews.init();
     Tasks.init();
+    Inbox.init();
 
     this.refreshOverview();
     this.initGoogleAutoSync();
@@ -98,9 +99,11 @@ const App = {
       scheduler: 'Meeting Scheduler',
       interviews: 'Interview Tracker',
       tasks: 'Task Management',
+      inbox: 'Inbox',
     };
     document.getElementById('viewTitle').textContent = titles[view] || view;
     if (view === 'overview') this.refreshOverview();
+    if (view === 'inbox') Inbox.ensureLoaded();
   },
 
   initTheme() {

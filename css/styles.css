@@ -502,6 +502,11 @@ textarea { resize: vertical; }
 
 .icon-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
+.icon-btn.connected {
+  color: var(--success);
+  border-color: var(--success);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

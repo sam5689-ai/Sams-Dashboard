@@ -31,6 +31,9 @@
         <button class="nav-item" data-view="tasks">
           <span class="nav-icon" data-icon="checkSquare"></span> Tasks
         </button>
+        <button class="nav-item" data-view="inbox">
+          <span class="nav-icon" data-icon="mail"></span> Inbox
+        </button>
       </nav>
       <div class="sidebar-footer">
         <button id="googleConnectBtn" class="ghost-btn" title="Connect Google Calendar"><span data-icon="link"></span> Connect Google</button>
@@ -143,6 +146,16 @@
         </div>
         <div id="taskList" class="card-list"></div>
       </section>
+
+      <section class="view" id="view-inbox">
+        <div class="toolbar">
+          <div class="filter-group">
+            <span style="color:var(--text-muted);font-size:13px;">Your 20 most recent inbox emails.</span>
+          </div>
+          <button class="secondary-btn" id="refreshInboxBtn"><span data-icon="download"></span> Refresh</button>
+        </div>
+        <div id="inboxList" class="card-list"></div>
+      </section>
     </main>
   </div>
 
@@ -159,6 +172,7 @@
   <script src="js/scheduler.js"></script>
   <script src="js/interviews.js"></script>
   <script src="js/tasks.js"></script>
+  <script src="js/inbox.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
