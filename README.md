@@ -75,18 +75,38 @@ This only works on the deployed Vercel site, not when running the dashboard via 
 
 The **Inbox** tab shows your 20 most recent Gmail messages (sender, subject, snippet, date, unread status) using the same Google connection as the calendar and email-to-task features — no extra setup needed once those are connected. Click any email to read its full content right in the dashboard (marks it read in Gmail too, just like opening it there would). Each row also has an **Open in Gmail** link and a checkmark button that applies the `ToDashboard` label and immediately runs the email-to-task sync on it, so you can turn any inbox email into a task in one click without leaving the dashboard. A green checkmark means that email is already queued.
 
+## WhatsApp-to-task
+
+Send yourself a WhatsApp message and it becomes a task — same idea as the email feature, but arriving through Meta's official WhatsApp Business Cloud API rather than Gmail. This is receive-only: the dashboard never sends WhatsApp messages, so no long-lived WhatsApp access token is needed, only a webhook.
+
+Because a WhatsApp message can arrive while no browser tab is open (unlike the Gmail flow, which the browser polls directly), this feature needs one small piece of shared storage so the message isn't lost: a free Redis-backed store from Vercel's Storage marketplace.
+
+**One-time setup:**
+
+1. **Add storage:** in your Vercel project, go to the **Storage** tab → **Create Database** → choose a Redis/KV option (Upstash-backed) → connect it to this project. This automatically adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, depending on how Vercel labels it — the code checks both) as environment variables.
+2. **Create a Meta app:** go to [developers.facebook.com](https://developers.facebook.com/), create an app (type: Business), and add the **WhatsApp** product.
+3. **Add yourself as a test recipient:** in WhatsApp → API Setup, add your own phone number under the test recipients list and verify it with the OTP code sent to your phone. This lets you message the free test WhatsApp Business number Meta provides without needing full business verification.
+4. **Pick a verify token:** make up any random string yourself (e.g. a UUID) — this isn't provided by Meta, you choose it. Add it to Vercel's environment variables as `WHATSAPP_VERIFY_TOKEN`, and redeploy so the webhook function can see it.
+5. **Configure the webhook:** in WhatsApp → Configuration, set the **Callback URL** to `https://<your-vercel-domain>/api/whatsapp-webhook` and the **Verify token** to the same string from step 4. Click Verify and Save, then subscribe to the **messages** webhook field.
+6. **Test it:** from your own phone, send a WhatsApp message to the test number (e.g. "Follow up with the electrician tomorrow about the quote"). Open the dashboard — within a few seconds (or up to 15 minutes if it's not currently open, since it checks periodically) the message should appear as a new task.
+
+Note: Meta's free test access tokens/numbers are meant for development — messages you send only work from numbers you've explicitly added as test recipients, and a test number's session details can expire, requiring you to revisit the WhatsApp API Setup page occasionally. For long-term personal use this is usually fine since it's just you messaging yourself.
+
 ## Project structure
 
 ```
-index.html          Page shell and layout for all views
-css/styles.css       Design system (light/dark theme aware)
-api/parse-email.js   Vercel serverless function: calls Claude to turn an email into a task
-js/storage.js        localStorage data layer (CRUD + export/import)
-js/google.js         Google OAuth (Calendar + Gmail scopes) + generic API request helper
-js/gmail.js           Gmail label lookup, message fetching/decoding, label removal
-js/inbox.js           Inbox view: recent emails + one-click convert to task
-js/scheduler.js      Meeting Scheduler view logic
-js/interviews.js     Interview Tracker view logic
-js/tasks.js          Task Management view logic + email-to-task sync
-js/app.js            Navigation, modal, toast, theme, overview stats, auto-sync scheduling
+index.html               Page shell and layout for all views
+css/styles.css            Design system (light/dark theme aware)
+api/parse-email.js        Vercel serverless function: calls Claude to turn an email into a task
+api/whatsapp-webhook.js   Vercel serverless function: receives WhatsApp messages, queues resulting tasks
+api/pending-tasks.js      Vercel serverless function: dashboard polls this to collect queued WhatsApp tasks
+js/storage.js             localStorage data layer (CRUD + export/import)
+js/google.js              Google OAuth (Calendar + Gmail scopes) + generic API request helper
+js/gmail.js               Gmail label lookup, message fetching/decoding, label removal
+js/inbox.js               Inbox view: recent emails + one-click convert to task
+js/whatsapp.js            Polls for tasks queued by the WhatsApp webhook
+js/scheduler.js           Meeting Scheduler view logic
+js/interviews.js          Interview Tracker view logic
+js/tasks.js               Task Management view logic + email-to-task sync
+js/app.js                 Navigation, modal, toast, theme, overview stats, auto-sync scheduling
 ```

@@ -56,6 +56,7 @@ const App = {
 
     this.refreshOverview();
     this.initGoogleAutoSync();
+    this.initWhatsAppSync();
   },
 
   // Keeps meetings and labeled emails current without manual clicks: syncs
@@ -68,6 +69,13 @@ const App = {
       Scheduler.autoSyncIfConnected();
       Tasks.autoSyncEmailIfConnected();
     }, 15 * 60 * 1000);
+  },
+
+  // WhatsApp tasks arrive via a server-side webhook independent of Google
+  // auth, so this checks for them on its own schedule.
+  initWhatsAppSync() {
+    WhatsAppSync.check();
+    setInterval(() => WhatsAppSync.check(), 15 * 60 * 1000);
   },
 
   renderStaticIcons() {
