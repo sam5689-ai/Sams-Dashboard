@@ -25,11 +25,13 @@ module.exports = async (req, res) => {
 Today's date is ${today}.
 Email from: ${from || 'unknown'}
 Email subject: ${subject || ''}
-Email body:
+Email body (this may still contain an older quoted message below the newest
+text, e.g. after "On ... wrote:" or lines starting with ">" — ignore any
+quoted/forwarded history and base the task only on the newest message):
 ${(body || '').slice(0, 4000)}
 
 Reply with ONLY a JSON object (no markdown fences, no explanation) in exactly this shape:
-{"title": "short task title", "description": "1-2 sentence summary of what needs doing", "dueDate": "YYYY-MM-DD, or empty string if no date is implied", "priority": "high" | "medium" | "low", "category": "short category like Hiring, Admin, Follow-up"}`;
+{"title": "short task title", "description": "a short 1-2 sentence summary of what needs doing, in your own words — never paste the raw email text", "dueDate": "YYYY-MM-DD, or empty string if no date is implied", "priority": "high" | "medium" | "low", "category": "short category like Hiring, Admin, Follow-up"}`;
 
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -64,12 +66,14 @@ Reply with ONLY a JSON object (no markdown fences, no explanation) in exactly th
       return;
     }
 
+    const truncate = (s, max) => (typeof s === 'string' && s.length > max ? s.slice(0, max).trim() + '…' : s || '');
+
     res.status(200).json({
-      title: parsed.title || subject || 'Untitled task',
-      description: parsed.description || '',
+      title: truncate(parsed.title || subject || 'Untitled task', 120),
+      description: truncate(parsed.description, 400),
       dueDate: parsed.dueDate || '',
       priority: ['high', 'medium', 'low'].includes(parsed.priority) ? parsed.priority : 'medium',
-      category: parsed.category || 'Email',
+      category: truncate(parsed.category || 'Email', 40),
     });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Unknown error' });
