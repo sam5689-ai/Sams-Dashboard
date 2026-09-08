@@ -35,4 +35,10 @@ const Icon = {
   search(s) { return this._wrap('<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>', s); },
   arrowLeft(s) { return this._wrap('<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>', s); },
   print(s) { return this._wrap('<polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect>', s); },
+  chevronLeft(s) { return this._wrap('<polyline points="15 18 9 12 15 6"></polyline>', s); },
+  chevronRight(s) { return this._wrap('<polyline points="9 18 15 12 9 6"></polyline>', s); },
+  chevronDown(s) { return this._wrap('<polyline points="6 9 12 15 18 9"></polyline>', s); },
+  moreVertical(s) { return this._wrap('<circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"></circle>', s); },
+  reply(s) { return this._wrap('<polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>', s); },
+  mailOpen(s) { return this._wrap('<path d="M21 8.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8.5"></path><path d="M3 8.5 12 14l9-5.5"></path><path d="M3 8.5 12 3l9 5.5"></path>', s); },
 };

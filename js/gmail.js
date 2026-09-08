@@ -238,7 +238,25 @@ const Gmail = {
     return {
       entries: (result.messages || []).map((m) => ({ id: m.id, threadId: m.threadId })),
       nextPageToken: result.nextPageToken || null,
+      // Gmail's own count is an estimate too — this is what powers the
+      // reader's "X of Y" pagination indicator.
+      resultSizeEstimate: result.resultSizeEstimate || 0,
     };
+  },
+
+  async star(messageId) {
+    return this.addLabel(messageId, 'STARRED');
+  },
+
+  async unstar(messageId) {
+    return this.removeLabel(messageId, 'STARRED');
+  },
+
+  // Re-adds UNREAD to a single message — enough to make Gmail's own inbox
+  // (and ours) show the conversation as unread again, mirroring "Mark as
+  // unread" without needing to touch every message in the thread.
+  async markMessageUnread(messageId) {
+    return this.addLabel(messageId, 'UNREAD');
   },
 
   async getMyEmail() {

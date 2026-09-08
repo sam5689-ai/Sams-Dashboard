@@ -22,6 +22,7 @@ const Inbox = {
   query: '',
   searchDebounce: null,
   activeTabId: 'primary',
+  resultSizeEstimate: 0,
 
   init() {
     const refreshBtn = document.getElementById('refreshInboxBtn');
@@ -46,6 +47,11 @@ const Inbox = {
 
     this.activeTabId = localStorage.getItem(ACTIVE_TAB_KEY) || 'primary';
     this.renderTabs();
+
+    // Close any open per-message "more" menu when clicking elsewhere.
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.more-menu-wrap')) this.closeAllMoreMenus();
+    });
   },
 
   getTabs() {
@@ -190,11 +196,62 @@ const Inbox = {
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   },
 
+  closeAllMoreMenus() {
+    document.querySelectorAll('.more-menu:not([hidden])').forEach((m) => { m.hidden = true; });
+  },
+
+  // Gmail's category system labels, surfaced as small pills next to the
+  // subject the same way Gmail itself tags a conversation (e.g. "External",
+  // "Inbox").
+  categoryTagsHtml(labelIds) {
+    const map = { CATEGORY_SOCIAL: 'Social', CATEGORY_PROMOTIONS: 'Promotions', CATEGORY_UPDATES: 'Updates', CATEGORY_FORUMS: 'Forums' };
+    const tags = [];
+    if (labelIds.includes('INBOX')) tags.push('Inbox');
+    Object.keys(map).forEach((key) => { if (labelIds.includes(key)) tags.push(map[key]); });
+    return tags.map((t) => `<span class="subject-tag">${escapeHtml(t)}</span>`).join('');
+  },
+
+  async toggleStar(btn) {
+    const messageId = btn.dataset.starToggle;
+    const starred = btn.dataset.starred === 'true';
+    btn.disabled = true;
+    try {
+      if (starred) await Gmail.unstar(messageId);
+      else await Gmail.star(messageId);
+      btn.dataset.starred = String(!starred);
+      btn.classList.toggle('starred', !starred);
+      btn.title = !starred ? 'Starred' : 'Not starred';
+    } catch (err) {
+      console.error(err);
+      Toast.show(err.message || 'Failed to update star');
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  async markMessageUnreadFromReader(messageId, threadId) {
+    try {
+      await Gmail.markMessageUnread(messageId);
+      const local = this.messages.find((m) => m.threadId === threadId);
+      if (local) {
+        local.unread = true;
+        this.render();
+      }
+      Toast.show('Marked as unread');
+    } catch (err) {
+      console.error(err);
+      Toast.show(err.message || 'Failed to mark as unread');
+    }
+  },
+
   // Loads the view for the first time it's visited; a manual "Refresh" click re-runs it.
   ensureLoaded() {
     if (!this.loaded) this.load();
   },
 
+  // Returns a promise resolved once the fetch (success or failure)
+  // completes, so callers like the reader's "next" pagination button can
+  // await a page of more results before navigating into it.
   load(opts) {
     const append = !!(opts && opts.append);
     const list = document.getElementById('inboxList');
@@ -208,7 +265,7 @@ const Inbox = {
       document.getElementById('inboxLoadMoreWrap').hidden = true;
       const btn = document.getElementById('inboxConnectBtn');
       if (btn) btn.addEventListener('click', () => GoogleCalendar.withConnection(() => this.load()));
-      return;
+      return Promise.resolve();
     }
 
     if (!append) {
@@ -217,15 +274,17 @@ const Inbox = {
     }
     this.loaded = true;
 
-    GoogleCalendar.withConnection(async () => {
+    return new Promise((resolve) => {
+      GoogleCalendar.withConnection(async () => {
       try {
         await Gmail.ensureLabelId();
         const combinedQuery = [this.activeTab.query, this.query].filter(Boolean).join(' ');
-        const { entries, nextPageToken } = await Gmail.searchInbox({
+        const { entries, nextPageToken, resultSizeEstimate } = await Gmail.searchInbox({
           query: combinedQuery,
           maxResults: 20,
           pageToken: append ? this.nextPageToken : null,
         });
+        this.resultSizeEstimate = resultSizeEstimate;
 
         // One row per conversation: skip any entry whose thread we've
         // already got a (more recent) row for, same as Gmail's own inbox
@@ -250,6 +309,8 @@ const Inbox = {
         console.error(err);
         list.innerHTML = `<div class="empty-state">Failed to load inbox: ${escapeHtml(err.message || 'Unknown error')}</div>`;
       }
+      resolve();
+      });
     });
   },
 
@@ -490,12 +551,12 @@ const Inbox = {
 
   // Renders one message inside the conversation. Collapsed messages show
   // just the header + snippet line; the most recent message starts expanded.
-  threadMessageHtml(message, expanded, myEmail) {
+  threadMessageHtml(message, expanded, myEmail, threadId) {
     const senderName = this.extractSenderName(message.from);
     const senderEmail = Gmail.extractEmailAddress(message.from);
     const snippetLine = (message.body || '').replace(/\s+/g, ' ').trim().slice(0, 100);
     const toLine = this.buildToLine(message, myEmail);
-    const fullRecipients = `To: ${message.to || ''}${message.cc ? `\nCc: ${message.cc}` : ''}`;
+    const starred = message.labelIds.includes('STARRED');
     const attachmentsHtml = message.attachments.length
       ? `<div class="attachment-list">${message.attachments.map((a, i) => this.attachmentChipHtml(message, a, i)).join('')}</div>`
       : '';
@@ -509,10 +570,31 @@ const Inbox = {
             <span class="thread-message-from-email" ${expanded ? '' : 'hidden'}>${escapeHtml(senderEmail)}</span>
             <span class="thread-message-snippet" ${expanded ? 'hidden' : ''}>${escapeHtml(snippetLine)}</span>
           </div>
-          <span class="thread-message-date">${escapeHtml(this.formatEmailDate(message.date))}</span>
+          <div class="thread-message-row-actions">
+            <span class="thread-message-date">${escapeHtml(this.formatEmailDate(message.date))}</span>
+            <button type="button" class="msg-icon-btn star-btn ${starred ? 'starred' : ''}" data-star-toggle="${escapeAttr(message.id)}" data-starred="${starred}" title="${starred ? 'Starred' : 'Not starred'}">${Icon.star(15)}</button>
+            <button type="button" class="msg-icon-btn" data-quick-reply="${escapeAttr(message.id)}" title="Reply">${Icon.reply(15)}</button>
+            <div class="more-menu-wrap">
+              <button type="button" class="msg-icon-btn" data-more-toggle title="More">${Icon.moreVertical(15)}</button>
+              <div class="more-menu" hidden>
+                <button type="button" data-menu-reply-all="${escapeAttr(message.id)}">Reply all</button>
+                <button type="button" data-menu-mark-unread="${escapeAttr(message.id)}" data-thread-id="${escapeAttr(threadId)}">Mark as unread</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="thread-message-body" ${expanded ? '' : 'hidden'}>
-          ${toLine ? `<div class="thread-message-to" title="${escapeAttr(fullRecipients)}">to <strong>${escapeHtml(toLine)}</strong></div>` : ''}
+          ${toLine ? `
+            <div class="thread-message-to" data-toggle-details="${escapeAttr(message.id)}">
+              to <strong>${escapeHtml(toLine)}</strong> ${Icon.chevronDown(12)}
+            </div>
+            <div class="thread-message-details" id="details-${escapeAttr(message.id)}" hidden>
+              <div><strong>From:</strong> ${escapeHtml(message.from)}</div>
+              <div><strong>To:</strong> ${escapeHtml(message.to || '')}</div>
+              ${message.cc ? `<div><strong>Cc:</strong> ${escapeHtml(message.cc)}</div>` : ''}
+              <div><strong>Date:</strong> ${escapeHtml(message.date)}</div>
+            </div>
+          ` : ''}
           ${this.messageBodyHtml(message)}
           ${attachmentsHtml}
         </div>
@@ -523,8 +605,8 @@ const Inbox = {
   async openReader(threadId) {
     const content = document.getElementById('emailReaderContent');
     content.innerHTML = `
-      <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
-      <p style="color:var(--text-muted);font-size:13px;">Loading conversation…</p>
+      <button type="button" class="icon-btn" id="readerBackBtn" title="Back to Inbox">${Icon.arrowLeft(16)}</button>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">Loading conversation…</p>
     `;
     this.showReaderView();
     document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
@@ -534,33 +616,48 @@ const Inbox = {
       const messages = thread.messages;
       const lastMessage = messages[messages.length - 1];
       const gmailLink = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(threadId)}`;
-      document.getElementById('viewTitle').textContent = lastMessage.subject;
       const myEmail = await Gmail.getMyEmail().catch(() => '');
 
+      // Position within the currently loaded list, for the "X of Y" +
+      // prev/next pagination control (mirrors Gmail's own reader toolbar).
+      const index = this.messages.findIndex((m) => m.threadId === threadId);
+      const hasPrev = index > 0;
+      const hasNext = index > -1 && (index + 1 < this.messages.length || !!this.nextPageToken);
+      const posLabel = index > -1 ? `${index + 1} of ${Math.max(this.resultSizeEstimate, this.messages.length)}` : '';
+
       content.innerHTML = `
-        <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
+        <div class="email-reader-toolbar-row">
+          <button type="button" class="icon-btn" id="readerBackBtn" title="Back to Inbox">${Icon.arrowLeft(16)}</button>
+          <span class="toolbar-divider"></span>
+          <button type="button" class="icon-btn" id="archiveReaderBtn" title="Archive">${Icon.archive(15)}</button>
+          <button type="button" class="icon-btn" id="trashReaderBtn" title="Delete">${Icon.trash(15)}</button>
+          <button type="button" class="icon-btn" id="markUnreadReaderBtn" title="Mark as unread">${Icon.mailOpen(15)}</button>
+          <div class="toolbar-spacer"></div>
+          ${posLabel ? `<span class="reader-pagination-count">${escapeHtml(posLabel)}</span>` : ''}
+          <button type="button" class="icon-btn" id="readerPrevBtn" title="Older" ${hasPrev ? '' : 'disabled'}>${Icon.chevronLeft(16)}</button>
+          <button type="button" class="icon-btn" id="readerNextBtn" title="Newer" ${hasNext ? '' : 'disabled'}>${Icon.chevronRight(16)}</button>
+        </div>
         <div class="email-reader-top">
-          <div class="email-reader-subject">${escapeHtml(lastMessage.subject)}</div>
+          <div class="email-reader-subject">
+            ${escapeHtml(lastMessage.subject)}
+            ${this.categoryTagsHtml(lastMessage.labelIds)}
+          </div>
           <div class="email-reader-toolbar">
-            <button type="button" class="icon-btn" id="archiveReaderBtn" title="Archive">${Icon.archive(15)}</button>
-            <button type="button" class="icon-btn" id="trashReaderBtn" title="Delete">${Icon.trash(15)}</button>
             <button type="button" class="icon-btn" id="printReaderBtn" title="Print">${Icon.print(15)}</button>
             <a class="icon-btn" href="${escapeAttr(gmailLink)}" target="_blank" rel="noopener" title="Open in Gmail">${Icon.externalLink(15)}</a>
           </div>
         </div>
         <div class="thread-message-list">
-          ${messages.map((m, i) => this.threadMessageHtml(m, i === messages.length - 1, myEmail)).join('')}
+          ${messages.map((m, i) => this.threadMessageHtml(m, i === messages.length - 1, myEmail, threadId)).join('')}
         </div>
         <div class="email-reader-actions">
-          <button type="button" class="pill-btn primary" id="replyReaderBtn">${Icon.send(15)} Reply</button>
-          <button type="button" class="pill-btn" id="replyAllReaderBtn">${Icon.send(15)} Reply All</button>
+          <button type="button" class="pill-btn primary" id="replyReaderBtn">${Icon.reply(15)} Reply</button>
           <button type="button" class="pill-btn" id="forwardReaderBtn">${Icon.forward(15)} Forward</button>
         </div>
       `;
 
       document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
       document.getElementById('replyReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'reply', thread }));
-      document.getElementById('replyAllReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'replyAll', thread }));
       document.getElementById('forwardReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'forward', thread }));
       document.getElementById('printReaderBtn').addEventListener('click', () => window.print());
       document.getElementById('archiveReaderBtn').addEventListener('click', async () => {
@@ -571,11 +668,28 @@ const Inbox = {
         this.closeReaderView();
         await this.trash(threadId);
       });
+      document.getElementById('markUnreadReaderBtn').addEventListener('click', () => {
+        this.markMessageUnreadFromReader(lastMessage.id, threadId);
+        this.closeReaderView();
+      });
+      document.getElementById('readerPrevBtn').addEventListener('click', () => {
+        if (hasPrev) this.openReader(this.messages[index - 1].threadId);
+      });
+      document.getElementById('readerNextBtn').addEventListener('click', async () => {
+        if (index + 1 < this.messages.length) {
+          this.openReader(this.messages[index + 1].threadId);
+        } else if (this.nextPageToken) {
+          const lengthBefore = this.messages.length;
+          await this.load({ append: true });
+          if (this.messages.length > lengthBefore) this.openReader(this.messages[lengthBefore].threadId);
+        }
+      });
 
       this.attachFrameResizers(content);
 
       content.querySelectorAll('[data-toggle-message]').forEach((header) => {
-        header.addEventListener('click', () => {
+        header.addEventListener('click', (e) => {
+          if (e.target.closest('.thread-message-row-actions')) return;
           const wrap = header.closest('.thread-message');
           const body = wrap.querySelector('.thread-message-body');
           const nowExpanded = wrap.classList.toggle('expanded');
@@ -596,6 +710,49 @@ const Inbox = {
           this.downloadAttachment(btn);
         })
       );
+      content.querySelectorAll('[data-star-toggle]').forEach((btn) =>
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleStar(btn);
+        })
+      );
+      content.querySelectorAll('[data-quick-reply]').forEach((btn) =>
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openCompose({ mode: 'reply', thread });
+        })
+      );
+      content.querySelectorAll('[data-more-toggle]').forEach((btn) =>
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const menu = btn.nextElementSibling;
+          const wasHidden = menu.hidden;
+          this.closeAllMoreMenus();
+          menu.hidden = !wasHidden;
+        })
+      );
+      content.querySelectorAll('[data-menu-reply-all]').forEach((btn) =>
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.closeAllMoreMenus();
+          this.openCompose({ mode: 'replyAll', thread });
+        })
+      );
+      content.querySelectorAll('[data-menu-mark-unread]').forEach((btn) =>
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.closeAllMoreMenus();
+          this.markMessageUnreadFromReader(btn.dataset.menuMarkUnread, btn.dataset.threadId);
+          this.closeReaderView();
+        })
+      );
+      content.querySelectorAll('[data-toggle-details]').forEach((el) =>
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const details = document.getElementById(`details-${el.dataset.toggleDetails}`);
+          if (details) details.hidden = !details.hidden;
+        })
+      );
 
       // Mark every unread message in the conversation read, same as Gmail
       // does when you open a conversation from the inbox list.
@@ -613,8 +770,8 @@ const Inbox = {
     } catch (err) {
       console.error(err);
       content.innerHTML = `
-        <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
-        <p style="color:var(--danger);font-size:14px;">Couldn't load conversation: ${escapeHtml(err.message || 'Unknown error')}</p>
+        <button type="button" class="icon-btn" id="readerBackBtn" title="Back to Inbox">${Icon.arrowLeft(16)}</button>
+        <p style="color:var(--danger);font-size:14px;margin-top:12px;">Couldn't load conversation: ${escapeHtml(err.message || 'Unknown error')}</p>
       `;
       document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
     }
