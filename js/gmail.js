@@ -42,10 +42,20 @@ const Gmail = {
     }
   },
 
+  // Plain-text body — used for AI task parsing, reply quoting, and the
+  // collapsed thread-message snippet. A single-part HTML email (no
+  // `parts` array) used to be returned completely untouched here, which is
+  // why an HTML-only email would show its raw markup as if it were the
+  // message text; it's now stripped to text the same way the multipart
+  // case already handled.
   extractBody(payload) {
     if (!payload) return '';
     if (payload.body && payload.body.data && !payload.parts) {
-      return this.decodeBase64Url(payload.body.data);
+      const raw = this.decodeBase64Url(payload.body.data);
+      if (payload.mimeType === 'text/html') {
+        return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      }
+      return raw;
     }
     if (payload.parts) {
       const plain = payload.parts.find((p) => p.mimeType === 'text/plain');
@@ -59,6 +69,25 @@ const Gmail = {
 
       for (const part of payload.parts) {
         const nested = this.extractBody(part);
+        if (nested) return nested;
+      }
+    }
+    return '';
+  },
+
+  // Raw HTML body (unstripped), when the message has one — used to render
+  // the actual email with working links and images instead of the
+  // plain-text fallback above.
+  extractHtmlBody(payload) {
+    if (!payload) return '';
+    if (payload.mimeType === 'text/html' && payload.body && payload.body.data) {
+      return this.decodeBase64Url(payload.body.data);
+    }
+    if (payload.parts) {
+      const html = payload.parts.find((p) => p.mimeType === 'text/html');
+      if (html && html.body && html.body.data) return this.decodeBase64Url(html.body.data);
+      for (const part of payload.parts) {
+        const nested = this.extractHtmlBody(part);
         if (nested) return nested;
       }
     }
@@ -101,6 +130,10 @@ const Gmail = {
       cc: getHeader('Cc'),
       date: getHeader('Date'),
       body: this.extractBody(msg.payload),
+      // Raw HTML, when the message has an HTML part — the reader renders
+      // this (in a sandboxed iframe) instead of `body` when present, so
+      // links and images actually work rather than showing as stripped text.
+      html: this.extractHtmlBody(msg.payload),
       labelIds: msg.labelIds || [],
       // RFC822 Message-Id (distinct from Gmail's own `id`), needed so a
       // reply/forward threads correctly in Gmail via In-Reply-To/References.

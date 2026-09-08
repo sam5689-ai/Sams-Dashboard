@@ -357,6 +357,15 @@ a:focus-visible {
   margin-bottom: 12px;
 }
 
+.email-html-frame {
+  width: 100%;
+  height: 200px;
+  border: none;
+  background: #fff;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
 .attachment-list {
   display: flex;
   flex-wrap: wrap;

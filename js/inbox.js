@@ -236,6 +236,67 @@ const Inbox = {
     `;
   },
 
+  // Turns bare URLs in already-escaped plain text into clickable links.
+  // Runs after escapeHtml, so matches only ever contain safe characters
+  // (any "&" is already the entity "&amp;"), and trailing sentence
+  // punctuation is left outside the link.
+  linkifyPlainText(escapedText) {
+    return escapedText.replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi, (match) => {
+      let trail = '';
+      while (match.length && /[.,!?;:'")\]]/.test(match[match.length - 1])) {
+        trail = match[match.length - 1] + trail;
+        match = match.slice(0, -1);
+      }
+      if (!match) return trail;
+      const href = /^https?:\/\//i.test(match) ? match : `https://${match}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${match}</a>${trail}`;
+    });
+  },
+
+  // Wraps a raw HTML email body into a standalone document for the reader
+  // iframe: forces links to open in a new tab and keeps images/tables from
+  // overflowing the narrow reading column.
+  wrapHtmlForFrame(html) {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>
+      body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.6; margin: 0; padding: 2px; color: #111; word-break: break-word; }
+      img { max-width: 100%; height: auto; }
+      table { max-width: 100%; }
+      a { color: #4f46e5; }
+    </style></head><body>${html}</body></html>`;
+  },
+
+  // A message with an HTML part renders in a sandboxed iframe (so links and
+  // images work, unlike the old stripped-to-text rendering); plain-text-only
+  // messages fall back to escaped text with URLs linkified.
+  messageBodyHtml(message) {
+    if (message.html) {
+      return `<iframe class="email-html-frame" data-html-frame sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${escapeAttr(this.wrapHtmlForFrame(message.html))}"></iframe>`;
+    }
+    const text = this.linkifyPlainText(escapeHtml(message.body));
+    return `<div class="email-reader-body">${text || '<span style="color:var(--text-muted)">(No content)</span>'}</div>`;
+  },
+
+  // Sandboxed iframes report no height of their own, so grow each one to
+  // fit its actual content (allow-same-origin lets the parent read
+  // contentDocument for this even though no scripts run inside).
+  resizeFrame(frame) {
+    try {
+      const height = frame.contentWindow.document.documentElement.scrollHeight;
+      // A frame inside a collapsed (display:none) message measures as 0 —
+      // ignore that and leave the fallback height for it to be re-measured
+      // once the message is actually expanded.
+      if (height > 0) frame.style.height = `${Math.min(Math.max(height + 16, 80), 2000)}px`;
+    } catch (err) {
+      frame.style.height = '400px';
+    }
+  },
+
+  attachFrameResizers(container) {
+    container.querySelectorAll('[data-html-frame]').forEach((frame) => {
+      frame.addEventListener('load', () => this.resizeFrame(frame));
+    });
+  },
+
   async downloadAttachment(btn) {
     const { messageId, attachmentId, inline, filename, mime } = btn.dataset;
     btn.disabled = true;
@@ -282,7 +343,7 @@ const Inbox = {
             ${message.to ? `<div><strong>To:</strong> ${escapeHtml(message.to)}</div>` : ''}
             ${message.cc ? `<div><strong>Cc:</strong> ${escapeHtml(message.cc)}</div>` : ''}
           </div>
-          <div class="email-reader-body">${escapeHtml(message.body) || '<span style="color:var(--text-muted)">(No content)</span>'}</div>
+          ${this.messageBodyHtml(message)}
           ${attachmentsHtml}
         </div>
       </div>
@@ -334,6 +395,8 @@ const Inbox = {
         await this.trash(threadId);
       });
 
+      this.attachFrameResizers(content);
+
       content.querySelectorAll('[data-toggle-message]').forEach((header) => {
         header.addEventListener('click', () => {
           const wrap = header.closest('.thread-message');
@@ -342,6 +405,10 @@ const Inbox = {
           body.hidden = !nowExpanded;
           const snippet = header.querySelector('.thread-message-snippet');
           if (snippet) snippet.style.display = nowExpanded ? 'none' : '';
+          if (nowExpanded) {
+            const frame = body.querySelector('[data-html-frame]');
+            if (frame) this.resizeFrame(frame);
+          }
         });
       });
       content.querySelectorAll('[data-download-attachment]').forEach((btn) =>
