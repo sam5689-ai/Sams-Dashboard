@@ -89,6 +89,7 @@ This only works on the deployed Vercel site, not when running the dashboard via 
 The **Inbox** tab is a lightweight Gmail client built into the dashboard, using the same Google connection as the calendar and email-to-task features:
 
 - **Search** — the search box accepts real Gmail search syntax (`from:sam`, `subject:invoice`, `is:unread`, etc.), scoped to your inbox.
+- **Category tabs** — Primary/Promotions/Social/Updates/Forums, same as Gmail, and filtered automatically the same way: each tab is just Gmail's own `category:` search operator (`category:promotions`, etc.), so there's no guessing at what's promotional — it's whatever Gmail itself already classified. Click the **+** at the end of the tab bar to add your own tab from any Gmail search query (e.g. `label:Clients`, `from:boss@example.com`, `is:starred` — a few common ones are offered as one-click presets). Hover a custom tab for an **×** to remove it. Your tabs and last-open tab are saved locally and persist across visits.
 - **Load more** — fetches the next page of results instead of being capped at 20.
 - **One row per conversation** — the list is deduped by thread the way Gmail's own inbox is, instead of showing every message in a back-and-forth separately.
 - **Read** — click a conversation to open it full-page (not a popup), same as clicking into a conversation in Gmail itself; a **Back to Inbox** link returns you to the list. Marks every message in it read in Gmail too, just like opening it there would.

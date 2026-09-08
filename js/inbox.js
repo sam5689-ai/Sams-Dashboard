@@ -2,12 +2,26 @@
 // conversations, reply/reply all/forward with attachments, archive, delete,
 // compose, and turn any message into a task — all against the same Google
 // connection used for Calendar sync.
+// Default tabs mirror Gmail's own inbox categories — same `category:`
+// search operator Gmail's own tabs use under the hood, so filtering is
+// exact and automatic rather than a guess at what's promotional/social.
+const DEFAULT_INBOX_TABS = [
+  { id: 'primary', label: 'Primary', query: 'category:primary', removable: false },
+  { id: 'promotions', label: 'Promotions', query: 'category:promotions', removable: true },
+  { id: 'social', label: 'Social', query: 'category:social', removable: true },
+  { id: 'updates', label: 'Updates', query: 'category:updates', removable: true },
+  { id: 'forums', label: 'Forums', query: 'category:forums', removable: true },
+];
+
+const ACTIVE_TAB_KEY = 'dashboard.inbox.activeTab';
+
 const Inbox = {
   messages: [],
   loaded: false,
   nextPageToken: null,
   query: '',
   searchDebounce: null,
+  activeTabId: 'primary',
 
   init() {
     const refreshBtn = document.getElementById('refreshInboxBtn');
@@ -29,6 +43,130 @@ const Inbox = {
         }, 400);
       });
     }
+
+    this.activeTabId = localStorage.getItem(ACTIVE_TAB_KEY) || 'primary';
+    this.renderTabs();
+  },
+
+  getTabs() {
+    let tabs = Store.getAll('inboxTabs');
+    if (!tabs.length) {
+      tabs = DEFAULT_INBOX_TABS;
+      Store.save('inboxTabs', tabs);
+    }
+    return tabs;
+  },
+
+  get activeTab() {
+    const tabs = this.getTabs();
+    return tabs.find((t) => t.id === this.activeTabId) || tabs[0];
+  },
+
+  setActiveTab(id) {
+    this.activeTabId = id;
+    localStorage.setItem(ACTIVE_TAB_KEY, id);
+    this.renderTabs();
+    this.load();
+  },
+
+  renderTabs() {
+    const wrap = document.getElementById('inboxTabs');
+    if (!wrap) return;
+    const tabs = this.getTabs();
+    wrap.innerHTML = tabs.map((tab) => `
+      <button type="button" class="inbox-tab ${tab.id === this.activeTabId ? 'active' : ''}" data-tab="${escapeAttr(tab.id)}" title="${escapeAttr(tab.query)}">
+        ${escapeHtml(tab.label)}
+        ${tab.removable ? `<span class="inbox-tab-remove" data-remove-tab="${escapeAttr(tab.id)}">${Icon.x(12)}</span>` : ''}
+      </button>
+    `).join('') + `<button type="button" class="inbox-tab-add" id="addInboxTabBtn" title="Add a tab">${Icon.plus(14)}</button>`;
+
+    wrap.querySelectorAll('[data-tab]').forEach((btn) =>
+      btn.addEventListener('click', () => this.setActiveTab(btn.dataset.tab))
+    );
+    wrap.querySelectorAll('[data-remove-tab]').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeTab(btn.dataset.removeTab);
+      })
+    );
+    const addBtn = document.getElementById('addInboxTabBtn');
+    if (addBtn) addBtn.addEventListener('click', () => this.openAddTabModal());
+  },
+
+  removeTab(id) {
+    const tabs = this.getTabs().filter((t) => t.id !== id);
+    Store.save('inboxTabs', tabs);
+    if (this.activeTabId === id) {
+      this.setActiveTab('primary');
+    } else {
+      this.renderTabs();
+    }
+  },
+
+  openAddTabModal() {
+    const existingQueries = new Set(this.getTabs().map((t) => t.query));
+    const presets = [
+      { label: 'Forums', query: 'category:forums' },
+      { label: 'Updates', query: 'category:updates' },
+      { label: 'Social', query: 'category:social' },
+      { label: 'Promotions', query: 'category:promotions' },
+      { label: 'Starred', query: 'is:starred' },
+    ].filter((p) => !existingQueries.has(p.query));
+
+    Modal.open(`
+      <h2>Add inbox tab</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:-8px;">
+        Tabs filter your inbox automatically using Gmail search syntax, the same way Gmail's own category tabs work.
+      </p>
+      ${presets.length ? `
+        <div class="form-row">
+          <label>Quick add</label>
+          <select id="addTabPreset">
+            <option value="">Custom…</option>
+            ${presets.map((p) => `<option value="${escapeAttr(p.label)}|${escapeAttr(p.query)}">${escapeHtml(p.label)}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+      <form id="addTabForm">
+        <div class="form-row">
+          <label>Tab name</label>
+          <input type="text" name="label" placeholder="e.g. Clients" required />
+        </div>
+        <div class="form-row">
+          <label>Gmail search query</label>
+          <input type="text" name="query" placeholder="e.g. label:Clients, from:boss@example.com, is:starred" required />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" id="cancelBtn">Cancel</button>
+          <button type="submit" class="primary-btn">${Icon.plus(15)} Add Tab</button>
+        </div>
+      </form>
+    `);
+
+    const preset = document.getElementById('addTabPreset');
+    if (preset) {
+      preset.addEventListener('change', () => {
+        if (!preset.value) return;
+        const [label, query] = preset.value.split('|');
+        document.querySelector('#addTabForm input[name="label"]').value = label;
+        document.querySelector('#addTabForm input[name="query"]').value = query;
+      });
+    }
+
+    document.getElementById('cancelBtn').addEventListener('click', () => Modal.close());
+    document.getElementById('addTabForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const label = String(fd.get('label')).trim();
+      const query = String(fd.get('query')).trim();
+      if (!label || !query) return;
+
+      const tabs = this.getTabs();
+      tabs.push({ id: Store.uid(), label, query, removable: true });
+      Store.save('inboxTabs', tabs);
+      Modal.close();
+      this.setActiveTab(tabs[tabs.length - 1].id);
+    });
   },
 
   extractSenderName(from) {
@@ -82,15 +220,18 @@ const Inbox = {
     GoogleCalendar.withConnection(async () => {
       try {
         await Gmail.ensureLabelId();
+        const combinedQuery = [this.activeTab.query, this.query].filter(Boolean).join(' ');
         const { entries, nextPageToken } = await Gmail.searchInbox({
-          query: this.query,
+          query: combinedQuery,
           maxResults: 20,
           pageToken: append ? this.nextPageToken : null,
         });
 
         // One row per conversation: skip any entry whose thread we've
-        // already got a (more recent) row for, same as Gmail's own inbox list.
-        const seenThreads = new Set(this.messages.map((m) => m.threadId));
+        // already got a (more recent) row for, same as Gmail's own inbox
+        // list. Only relevant when appending a page onto the current list —
+        // a fresh load (new tab/search) has nothing yet to dedupe against.
+        const seenThreads = new Set(append ? this.messages.map((m) => m.threadId) : []);
         const deduped = [];
         for (const entry of entries) {
           if (seenThreads.has(entry.threadId)) continue;

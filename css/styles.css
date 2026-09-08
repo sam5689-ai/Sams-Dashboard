@@ -550,6 +550,76 @@ a:focus-visible {
   display: none;
 }
 
+/* Inbox category tabs (Primary/Promotions/Social/... like Gmail) */
+.inbox-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.inbox-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.inbox-tab:hover { color: var(--text); }
+
+.inbox-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.inbox-tab-count {
+  background: var(--bg-alt);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+}
+
+.inbox-tab.active .inbox-tab-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.inbox-tab-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  border-radius: 50%;
+  color: var(--text-muted);
+}
+
+.inbox-tab:hover .inbox-tab-remove { opacity: 1; }
+.inbox-tab-remove:hover { color: var(--danger); }
+
+.inbox-tab-add {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.inbox-tab-add:hover { color: var(--text); background: var(--bg-alt); }
+
 select, input[type="search"], input[type="text"], input[type="date"],
 input[type="time"], input[type="email"], input[type="tel"], input[type="url"],
 input[type="number"], textarea {
