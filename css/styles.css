@@ -238,9 +238,9 @@ a:focus-visible {
 .view { display: none; }
 .view.active { display: block; }
 
-/* Full-page email reader (Inbox tab) */
+/* Full-page email reader (Inbox tab) — styled after Gmail's own reading pane */
 .email-reader {
-  max-width: 760px;
+  max-width: 820px;
 }
 
 .email-reader-back {
@@ -259,20 +259,25 @@ a:focus-visible {
 
 .email-reader-back:hover { color: var(--text); }
 
+.email-reader-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
 .email-reader-subject {
   font-size: 22px;
   font-weight: 700;
-  margin-bottom: 10px;
   word-break: break-word;
 }
 
-.email-reader-meta {
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.7;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--border);
+.email-reader-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 2px;
 }
 
 .email-reader-body {
@@ -280,51 +285,97 @@ a:focus-visible {
   word-break: break-word;
   font-size: 15px;
   line-height: 1.7;
-  margin-bottom: 28px;
+  margin-bottom: 12px;
 }
 
+/* Reply/Forward pill bar at the bottom of the conversation */
 .email-reader-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
+  gap: 10px;
+  padding-top: 24px;
+  margin-top: 8px;
 }
 
-/* Threaded conversation (Inbox reader) */
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.pill-btn:hover { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+
+.pill-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.pill-btn.primary:hover { filter: brightness(1.05); }
+
+/* Threaded conversation */
 .thread-message-list {
-  margin-bottom: 24px;
+  margin: 20px 0 8px;
 }
 
 .thread-message {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 8px;
-  overflow: hidden;
+  border-top: 1px solid var(--border);
 }
 
-.thread-message.expanded {
-  border-color: color-mix(in srgb, var(--accent) 25%, var(--border));
-}
+.thread-message:first-child { border-top: none; }
 
 .thread-message-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 14px 4px;
   cursor: pointer;
-  background: var(--bg-alt);
 }
 
-.thread-message-header:hover { background: var(--bg-hover, var(--bg-alt)); }
+.thread-message-header:hover { background: var(--bg-alt); }
+
+.thread-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
 
 .thread-message-header-main {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   overflow: hidden;
+  flex: 1;
+}
+
+.thread-message-from-name {
+  font-weight: 700;
+}
+
+.thread-message-from-email {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .thread-message-snippet {
@@ -343,19 +394,17 @@ a:focus-visible {
 }
 
 .thread-message-body {
-  padding: 16px;
-  border-top: 1px solid var(--border);
+  padding: 0 4px 20px 64px;
 }
 
-.thread-message-body .email-reader-meta {
-  border-bottom: none;
-  margin-bottom: 10px;
-  padding-bottom: 0;
+.thread-message-to {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  margin: -6px 0 14px;
+  cursor: default;
 }
 
-.thread-message-body .email-reader-body {
-  margin-bottom: 12px;
-}
+.thread-message-to strong { color: var(--text); font-weight: 600; }
 
 .email-html-frame {
   width: 100%;
@@ -988,4 +1037,9 @@ textarea { resize: vertical; }
   .modal-overlay { padding: 10px; }
   .modal { padding: 18px; }
   .pipeline { grid-template-columns: repeat(7, 82vw); }
+
+  .thread-avatar { width: 30px; height: 30px; font-size: 12px; }
+  .thread-message-body { padding-left: 42px; }
+  .thread-message-header-main { flex-wrap: wrap; }
+  .email-reader-actions .pill-btn { padding: 10px 16px; white-space: nowrap; }
 }

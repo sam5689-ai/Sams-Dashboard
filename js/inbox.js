@@ -460,11 +460,42 @@ const Inbox = {
     }
   },
 
+  // Deterministic Gmail-style avatar: same sender always gets the same
+  // colored initial, no image needed.
+  avatarColor(seed) {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    return `hsl(${Math.abs(hash) % 360}, 50%, 42%)`;
+  },
+
+  avatarInitial(name) {
+    const trimmed = (name || '').trim();
+    return trimmed ? trimmed[0] : '?';
+  },
+
+  // A compact "to me"-style recipient line, replacing "me" for whichever
+  // address matches the signed-in account — same simplification Gmail's
+  // own reader uses instead of showing the raw To/Cc headers.
+  buildToLine(message, myEmail) {
+    if (!message.to) return '';
+    const names = message.to.split(',').map((r) => r.trim()).filter(Boolean).map((r) => {
+      const email = Gmail.extractEmailAddress(r);
+      if (myEmail && email.toLowerCase() === myEmail.toLowerCase()) return 'me';
+      return this.extractSenderName(r) || email;
+    });
+    let text = names.join(', ');
+    if (message.cc) text += ', cc';
+    return text;
+  },
+
   // Renders one message inside the conversation. Collapsed messages show
   // just the header + snippet line; the most recent message starts expanded.
-  threadMessageHtml(message, expanded) {
+  threadMessageHtml(message, expanded, myEmail) {
     const senderName = this.extractSenderName(message.from);
+    const senderEmail = Gmail.extractEmailAddress(message.from);
     const snippetLine = (message.body || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    const toLine = this.buildToLine(message, myEmail);
+    const fullRecipients = `To: ${message.to || ''}${message.cc ? `\nCc: ${message.cc}` : ''}`;
     const attachmentsHtml = message.attachments.length
       ? `<div class="attachment-list">${message.attachments.map((a, i) => this.attachmentChipHtml(message, a, i)).join('')}</div>`
       : '';
@@ -472,18 +503,16 @@ const Inbox = {
     return `
       <div class="thread-message ${expanded ? 'expanded' : ''}" data-message-id="${escapeAttr(message.id)}">
         <div class="thread-message-header" data-toggle-message="${escapeAttr(message.id)}">
+          <div class="thread-avatar" style="background:${this.avatarColor(senderEmail || senderName)}">${escapeHtml(this.avatarInitial(senderName || senderEmail))}</div>
           <div class="thread-message-header-main">
-            <strong>${escapeHtml(senderName)}</strong>
-            ${!expanded ? `<span class="thread-message-snippet">${escapeHtml(snippetLine)}</span>` : ''}
+            <span class="thread-message-from-name">${escapeHtml(senderName)}</span>
+            <span class="thread-message-from-email" ${expanded ? '' : 'hidden'}>${escapeHtml(senderEmail)}</span>
+            <span class="thread-message-snippet" ${expanded ? 'hidden' : ''}>${escapeHtml(snippetLine)}</span>
           </div>
           <span class="thread-message-date">${escapeHtml(this.formatEmailDate(message.date))}</span>
         </div>
         <div class="thread-message-body" ${expanded ? '' : 'hidden'}>
-          <div class="email-reader-meta">
-            <div><strong>From:</strong> ${escapeHtml(message.from)}</div>
-            ${message.to ? `<div><strong>To:</strong> ${escapeHtml(message.to)}</div>` : ''}
-            ${message.cc ? `<div><strong>Cc:</strong> ${escapeHtml(message.cc)}</div>` : ''}
-          </div>
+          ${toLine ? `<div class="thread-message-to" title="${escapeAttr(fullRecipients)}">to <strong>${escapeHtml(toLine)}</strong></div>` : ''}
           ${this.messageBodyHtml(message)}
           ${attachmentsHtml}
         </div>
@@ -506,20 +535,26 @@ const Inbox = {
       const lastMessage = messages[messages.length - 1];
       const gmailLink = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(threadId)}`;
       document.getElementById('viewTitle').textContent = lastMessage.subject;
+      const myEmail = await Gmail.getMyEmail().catch(() => '');
 
       content.innerHTML = `
         <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
-        <div class="email-reader-subject">${escapeHtml(lastMessage.subject)}</div>
+        <div class="email-reader-top">
+          <div class="email-reader-subject">${escapeHtml(lastMessage.subject)}</div>
+          <div class="email-reader-toolbar">
+            <button type="button" class="icon-btn" id="archiveReaderBtn" title="Archive">${Icon.archive(15)}</button>
+            <button type="button" class="icon-btn" id="trashReaderBtn" title="Delete">${Icon.trash(15)}</button>
+            <button type="button" class="icon-btn" id="printReaderBtn" title="Print">${Icon.print(15)}</button>
+            <a class="icon-btn" href="${escapeAttr(gmailLink)}" target="_blank" rel="noopener" title="Open in Gmail">${Icon.externalLink(15)}</a>
+          </div>
+        </div>
         <div class="thread-message-list">
-          ${messages.map((m, i) => this.threadMessageHtml(m, i === messages.length - 1)).join('')}
+          ${messages.map((m, i) => this.threadMessageHtml(m, i === messages.length - 1, myEmail)).join('')}
         </div>
         <div class="email-reader-actions">
-          <button type="button" class="primary-btn" id="replyReaderBtn">${Icon.send(15)} Reply</button>
-          <button type="button" class="secondary-btn" id="replyAllReaderBtn">${Icon.send(15)} Reply All</button>
-          <button type="button" class="secondary-btn" id="forwardReaderBtn">${Icon.forward(15)} Forward</button>
-          <button type="button" class="secondary-btn" id="archiveReaderBtn">${Icon.archive(15)} Archive</button>
-          <button type="button" class="secondary-btn" id="trashReaderBtn">${Icon.trash(15)} Delete</button>
-          <a class="secondary-btn" href="${escapeAttr(gmailLink)}" target="_blank" rel="noopener">${Icon.externalLink(15)} Open in Gmail</a>
+          <button type="button" class="pill-btn primary" id="replyReaderBtn">${Icon.send(15)} Reply</button>
+          <button type="button" class="pill-btn" id="replyAllReaderBtn">${Icon.send(15)} Reply All</button>
+          <button type="button" class="pill-btn" id="forwardReaderBtn">${Icon.forward(15)} Forward</button>
         </div>
       `;
 
@@ -527,6 +562,7 @@ const Inbox = {
       document.getElementById('replyReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'reply', thread }));
       document.getElementById('replyAllReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'replyAll', thread }));
       document.getElementById('forwardReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'forward', thread }));
+      document.getElementById('printReaderBtn').addEventListener('click', () => window.print());
       document.getElementById('archiveReaderBtn').addEventListener('click', async () => {
         this.closeReaderView();
         await this.archive(threadId);
@@ -545,7 +581,9 @@ const Inbox = {
           const nowExpanded = wrap.classList.toggle('expanded');
           body.hidden = !nowExpanded;
           const snippet = header.querySelector('.thread-message-snippet');
-          if (snippet) snippet.style.display = nowExpanded ? 'none' : '';
+          const emailSpan = header.querySelector('.thread-message-from-email');
+          if (snippet) snippet.hidden = nowExpanded;
+          if (emailSpan) emailSpan.hidden = !nowExpanded;
           if (nowExpanded) {
             const frame = body.querySelector('[data-html-frame]');
             if (frame) this.resizeFrame(frame);
