@@ -1,6 +1,7 @@
-// Email Inbox view: a lightweight Gmail client — search, read, reply/reply
-// all/forward, archive, delete, compose, and turn any message into a task —
-// all against the same Google connection used for Calendar sync.
+// Email Inbox view: a lightweight Gmail client — search, read full threaded
+// conversations, reply/reply all/forward with attachments, archive, delete,
+// compose, and turn any message into a task — all against the same Google
+// connection used for Calendar sync.
 const Inbox = {
   messages: [],
   loaded: false,
@@ -45,6 +46,12 @@ const Inbox = {
     return `${datePart} · ${timePart}`;
   },
 
+  formatBytes(n) {
+    if (!n) return '0 KB';
+    if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  },
+
   // Loads the view for the first time it's visited; a manual "Refresh" click re-runs it.
   ensureLoaded() {
     if (!this.loaded) this.load();
@@ -75,14 +82,25 @@ const Inbox = {
     GoogleCalendar.withConnection(async () => {
       try {
         await Gmail.ensureLabelId();
-        const { ids, nextPageToken } = await Gmail.searchInbox({
+        const { entries, nextPageToken } = await Gmail.searchInbox({
           query: this.query,
           maxResults: 20,
           pageToken: append ? this.nextPageToken : null,
         });
+
+        // One row per conversation: skip any entry whose thread we've
+        // already got a (more recent) row for, same as Gmail's own inbox list.
+        const seenThreads = new Set(this.messages.map((m) => m.threadId));
+        const deduped = [];
+        for (const entry of entries) {
+          if (seenThreads.has(entry.threadId)) continue;
+          seenThreads.add(entry.threadId);
+          deduped.push(entry);
+        }
+
         const summaries = [];
-        for (const id of ids) {
-          summaries.push(await Gmail.getMessageSummary(id));
+        for (const entry of deduped) {
+          summaries.push(await Gmail.getMessageSummary(entry.id));
         }
         this.messages = append ? this.messages.concat(summaries) : summaries;
         this.nextPageToken = nextPageToken;
@@ -139,7 +157,7 @@ const Inbox = {
     const gmailLink = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(m.threadId)}`;
 
     return `
-      <div class="card" data-read="${m.id}" style="cursor:pointer;">
+      <div class="card" data-read="${escapeAttr(m.threadId)}" style="cursor:pointer;">
         <div class="card-main">
           <div class="card-title">
             ${m.unread ? '<span class="badge badge-google">Unread</span>' : ''}
@@ -152,48 +170,48 @@ const Inbox = {
         </div>
         <div class="card-actions">
           <a class="icon-btn" data-open-gmail href="${escapeAttr(gmailLink)}" target="_blank" rel="noopener" title="Open in Gmail">${Icon.externalLink(15)}</a>
-          <button class="icon-btn" data-archive="${m.id}" title="Archive">${Icon.archive(15)}</button>
-          <button class="icon-btn" data-trash="${m.id}" title="Delete">${Icon.trash(15)}</button>
+          <button class="icon-btn" data-archive="${escapeAttr(m.threadId)}" title="Archive">${Icon.archive(15)}</button>
+          <button class="icon-btn" data-trash="${escapeAttr(m.threadId)}" title="Delete">${Icon.trash(15)}</button>
           <button class="icon-btn ${alreadyLabeled ? 'connected' : ''}" data-make-task="${m.id}" title="${alreadyLabeled ? 'Already queued as a task' : 'Turn into a task'}">${Icon.checkSquare(15)}</button>
         </div>
       </div>
     `;
   },
 
-  removeFromList(id) {
-    this.messages = this.messages.filter((m) => m.id !== id);
+  removeFromList(threadId) {
+    this.messages = this.messages.filter((m) => m.threadId !== threadId);
     this.render();
   },
 
-  async archive(id, btn) {
+  async archive(threadId, btn) {
     if (btn) btn.disabled = true;
     try {
-      await Gmail.archiveMessage(id);
-      Toast.show('Email archived');
-      this.removeFromList(id);
+      await Gmail.archiveThread(threadId);
+      Toast.show('Conversation archived');
+      this.removeFromList(threadId);
     } catch (err) {
       console.error(err);
-      Toast.show(err.message || 'Failed to archive email');
+      Toast.show(err.message || 'Failed to archive conversation');
       if (btn) btn.disabled = false;
     }
   },
 
-  async trash(id, btn) {
+  async trash(threadId, btn) {
     if (btn) btn.disabled = true;
     try {
-      await Gmail.trashMessage(id);
-      Toast.show('Email moved to trash');
-      this.removeFromList(id);
+      await Gmail.trashThread(threadId);
+      Toast.show('Conversation moved to trash');
+      this.removeFromList(threadId);
     } catch (err) {
       console.error(err);
-      Toast.show(err.message || 'Failed to delete email');
+      Toast.show(err.message || 'Failed to delete conversation');
       if (btn) btn.disabled = false;
     }
   },
 
   // Switches from the inbox list to the full-page reader view for one
-  // email, matching Gmail's own click-through-to-read behaviour rather than
-  // a small popup.
+  // conversation, matching Gmail's own click-through-to-read behaviour
+  // rather than a small popup.
   showReaderView() {
     document.getElementById('view-inbox').classList.remove('active');
     document.getElementById('view-inbox-reader').classList.add('active');
@@ -205,30 +223,94 @@ const Inbox = {
     document.getElementById('viewTitle').textContent = 'Inbox';
   },
 
-  async openReader(id) {
+  attachmentChipHtml(message, att, index) {
+    return `
+      <button type="button" class="attachment-chip" data-download-attachment
+        data-message-id="${escapeAttr(message.id)}"
+        data-attachment-id="${escapeAttr(att.attachmentId || '')}"
+        data-inline="${att.inlineData ? escapeAttr(att.inlineData) : ''}"
+        data-filename="${escapeAttr(att.filename)}"
+        data-mime="${escapeAttr(att.mimeType)}">
+        ${Icon.download(14)} ${escapeHtml(att.filename)} <span class="attachment-size">${this.formatBytes(att.size)}</span>
+      </button>
+    `;
+  },
+
+  async downloadAttachment(btn) {
+    const { messageId, attachmentId, inline, filename, mime } = btn.dataset;
+    btn.disabled = true;
+    try {
+      const base64url = attachmentId ? await Gmail.getAttachmentData(messageId, attachmentId) : inline;
+      const blob = Gmail.base64UrlToBlob(base64url, mime);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'attachment';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (err) {
+      console.error(err);
+      Toast.show(err.message || 'Failed to download attachment');
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  // Renders one message inside the conversation. Collapsed messages show
+  // just the header + snippet line; the most recent message starts expanded.
+  threadMessageHtml(message, expanded) {
+    const senderName = this.extractSenderName(message.from);
+    const snippetLine = (message.body || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    const attachmentsHtml = message.attachments.length
+      ? `<div class="attachment-list">${message.attachments.map((a, i) => this.attachmentChipHtml(message, a, i)).join('')}</div>`
+      : '';
+
+    return `
+      <div class="thread-message ${expanded ? 'expanded' : ''}" data-message-id="${escapeAttr(message.id)}">
+        <div class="thread-message-header" data-toggle-message="${escapeAttr(message.id)}">
+          <div class="thread-message-header-main">
+            <strong>${escapeHtml(senderName)}</strong>
+            ${!expanded ? `<span class="thread-message-snippet">${escapeHtml(snippetLine)}</span>` : ''}
+          </div>
+          <span class="thread-message-date">${escapeHtml(this.formatEmailDate(message.date))}</span>
+        </div>
+        <div class="thread-message-body" ${expanded ? '' : 'hidden'}>
+          <div class="email-reader-meta">
+            <div><strong>From:</strong> ${escapeHtml(message.from)}</div>
+            ${message.to ? `<div><strong>To:</strong> ${escapeHtml(message.to)}</div>` : ''}
+            ${message.cc ? `<div><strong>Cc:</strong> ${escapeHtml(message.cc)}</div>` : ''}
+          </div>
+          <div class="email-reader-body">${escapeHtml(message.body) || '<span style="color:var(--text-muted)">(No content)</span>'}</div>
+          ${attachmentsHtml}
+        </div>
+      </div>
+    `;
+  },
+
+  async openReader(threadId) {
     const content = document.getElementById('emailReaderContent');
     content.innerHTML = `
       <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
-      <p style="color:var(--text-muted);font-size:13px;">Loading email…</p>
+      <p style="color:var(--text-muted);font-size:13px;">Loading conversation…</p>
     `;
     this.showReaderView();
     document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
 
     try {
-      const email = await Gmail.getFullMessageForReading(id);
-      const gmailLink = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(email.threadId)}`;
-      document.getElementById('viewTitle').textContent = email.subject;
+      const thread = await Gmail.getThread(threadId);
+      const messages = thread.messages;
+      const lastMessage = messages[messages.length - 1];
+      const gmailLink = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(threadId)}`;
+      document.getElementById('viewTitle').textContent = lastMessage.subject;
 
       content.innerHTML = `
         <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
-        <div class="email-reader-subject">${escapeHtml(email.subject)}</div>
-        <div class="email-reader-meta">
-          <div><strong>From:</strong> ${escapeHtml(email.from)}</div>
-          ${email.to ? `<div><strong>To:</strong> ${escapeHtml(email.to)}</div>` : ''}
-          ${email.cc ? `<div><strong>Cc:</strong> ${escapeHtml(email.cc)}</div>` : ''}
-          <div>${escapeHtml(this.formatEmailDate(email.date))}</div>
+        <div class="email-reader-subject">${escapeHtml(lastMessage.subject)}</div>
+        <div class="thread-message-list">
+          ${messages.map((m, i) => this.threadMessageHtml(m, i === messages.length - 1)).join('')}
         </div>
-        <div class="email-reader-body">${escapeHtml(email.body) || '<span style="color:var(--text-muted)">(No content)</span>'}</div>
         <div class="email-reader-actions">
           <button type="button" class="primary-btn" id="replyReaderBtn">${Icon.send(15)} Reply</button>
           <button type="button" class="secondary-btn" id="replyAllReaderBtn">${Icon.send(15)} Reply All</button>
@@ -240,24 +322,45 @@ const Inbox = {
       `;
 
       document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
-      document.getElementById('replyReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'reply', email }));
-      document.getElementById('replyAllReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'replyAll', email }));
-      document.getElementById('forwardReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'forward', email }));
+      document.getElementById('replyReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'reply', thread }));
+      document.getElementById('replyAllReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'replyAll', thread }));
+      document.getElementById('forwardReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'forward', thread }));
       document.getElementById('archiveReaderBtn').addEventListener('click', async () => {
         this.closeReaderView();
-        await this.archive(email.id);
+        await this.archive(threadId);
       });
       document.getElementById('trashReaderBtn').addEventListener('click', async () => {
         this.closeReaderView();
-        await this.trash(email.id);
+        await this.trash(threadId);
       });
 
-      if (email.labelIds.includes('UNREAD')) {
-        Gmail.removeLabel(id, 'UNREAD').catch((err) => console.warn('Failed to mark email as read', err));
-        const local = this.messages.find((m) => m.id === id);
+      content.querySelectorAll('[data-toggle-message]').forEach((header) => {
+        header.addEventListener('click', () => {
+          const wrap = header.closest('.thread-message');
+          const body = wrap.querySelector('.thread-message-body');
+          const nowExpanded = wrap.classList.toggle('expanded');
+          body.hidden = !nowExpanded;
+          const snippet = header.querySelector('.thread-message-snippet');
+          if (snippet) snippet.style.display = nowExpanded ? 'none' : '';
+        });
+      });
+      content.querySelectorAll('[data-download-attachment]').forEach((btn) =>
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.downloadAttachment(btn);
+        })
+      );
+
+      // Mark every unread message in the conversation read, same as Gmail
+      // does when you open a conversation from the inbox list.
+      const unreadIds = messages.filter((m) => m.labelIds.includes('UNREAD')).map((m) => m.id);
+      if (unreadIds.length) {
+        Promise.all(unreadIds.map((id) => Gmail.removeLabel(id, 'UNREAD'))).catch((err) =>
+          console.warn('Failed to mark conversation as read', err)
+        );
+        const local = this.messages.find((m) => m.threadId === threadId);
         if (local) {
           local.unread = false;
-          local.labelIds = local.labelIds.filter((l) => l !== 'UNREAD');
           this.render();
         }
       }
@@ -265,16 +368,25 @@ const Inbox = {
       console.error(err);
       content.innerHTML = `
         <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
-        <p style="color:var(--danger);font-size:14px;">Couldn't load email: ${escapeHtml(err.message || 'Unknown error')}</p>
+        <p style="color:var(--danger);font-size:14px;">Couldn't load conversation: ${escapeHtml(err.message || 'Unknown error')}</p>
       `;
       document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
     }
   },
 
-  // Builds the compose/reply/forward modal. `email` is the full message
-  // being replied to/forwarded (from getFullMessageForReading), omitted for
-  // a brand-new message.
-  async openCompose({ mode, email }) {
+  fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = () => reject(new Error(`Could not read file "${file.name}"`));
+      reader.readAsDataURL(file);
+    });
+  },
+
+  // Builds the compose/reply/forward modal. `thread` is the conversation
+  // being replied to/forwarded (from Gmail.getThread), omitted for a
+  // brand-new message.
+  async openCompose({ mode, thread }) {
     let to = '';
     let cc = '';
     let subject = '';
@@ -282,11 +394,12 @@ const Inbox = {
     let threadId = '';
     let inReplyTo = '';
     let references = '';
+    const email = thread ? thread.messages[thread.messages.length - 1] : null;
 
     if (email) {
       threadId = email.threadId;
       inReplyTo = email.messageIdHeader || '';
-      references = email.messageIdHeader || '';
+      references = thread.messages.map((m) => m.messageIdHeader).filter(Boolean).join(' ');
       const quotedLines = (email.body || '').split('\n').map((l) => '> ' + l).join('\n');
       quoted = `\n\n\nOn ${email.date}, ${email.from} wrote:\n${quotedLines}`;
     }
@@ -335,6 +448,10 @@ const Inbox = {
           <label>Message</label>
           <textarea name="body" rows="10" required>${escapeHtml(quoted)}</textarea>
         </div>
+        <div class="form-row">
+          <label>Attach files</label>
+          <input type="file" id="composeAttachmentsInput" multiple />
+        </div>
         <div class="modal-actions">
           <button type="button" class="secondary-btn" id="cancelBtn">Cancel</button>
           <button type="submit" class="primary-btn" id="sendEmailBtn">${Icon.send(15)} Send</button>
@@ -355,9 +472,18 @@ const Inbox = {
       const fd = new FormData(e.target);
       const sendBtn = document.getElementById('sendEmailBtn');
       sendBtn.disabled = true;
-      sendBtn.textContent = 'Sending…';
 
       try {
+        const files = Array.from(document.getElementById('composeAttachmentsInput').files || []);
+        const attachments = [];
+        if (files.length) {
+          sendBtn.textContent = 'Attaching files…';
+          for (const file of files) {
+            attachments.push({ filename: file.name, mimeType: file.type || 'application/octet-stream', base64: await this.fileToBase64(file) });
+          }
+        }
+
+        sendBtn.textContent = 'Sending…';
         await Gmail.sendMessage({
           to: fd.get('to'),
           cc: fd.get('cc') || '',
@@ -366,6 +492,7 @@ const Inbox = {
           inReplyTo,
           references,
           threadId,
+          attachments,
         });
         Modal.close();
         Toast.show('Email sent');

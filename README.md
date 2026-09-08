@@ -90,10 +90,13 @@ The **Inbox** tab is a lightweight Gmail client built into the dashboard, using 
 
 - **Search** — the search box accepts real Gmail search syntax (`from:sam`, `subject:invoice`, `is:unread`, etc.), scoped to your inbox.
 - **Load more** — fetches the next page of results instead of being capped at 20.
-- **Read** — click any email to open it full-page (not a popup), same as clicking into an email in Gmail itself; a **Back to Inbox** link returns you to the list. Marks it read in Gmail too, just like opening it there would.
-- **Reply / Reply All / Forward** — from the reader, each opens a compose modal prefilled with the right recipients, subject, and quoted original, and sends via Gmail so it threads correctly in the real conversation.
+- **One row per conversation** — the list is deduped by thread the way Gmail's own inbox is, instead of showing every message in a back-and-forth separately.
+- **Read** — click a conversation to open it full-page (not a popup), same as clicking into a conversation in Gmail itself; a **Back to Inbox** link returns you to the list. Marks every message in it read in Gmail too, just like opening it there would.
+- **Threaded conversation view** — every message in the conversation is shown stacked in order, collapsed to a one-line header (sender + snippet) except the most recent, which is expanded; click any header to expand/collapse it, matching Gmail's own conversation view.
+- **Attachments** — shown as download chips under whichever message they're on; click one to fetch and save the file. Composing, replying, and forwarding all support attaching your own files too (multiple at once).
+- **Reply / Reply All / Forward** — from the reader, each opens a compose modal prefilled with the right recipients, subject, and quoted original, and sends via Gmail so it threads correctly in the real conversation (using every message's Message-ID in the thread for proper `References`).
 - **Compose** — the toolbar button starts a brand-new email from scratch.
-- **Archive / Delete** — available both on each row and in the reader; archiving removes the `INBOX` label, deleting moves it to Gmail's trash.
+- **Archive / Delete** — available both on each row and in the reader; both act on the whole conversation at once (all its messages), the same as archiving/deleting a conversation in Gmail.
 - **Turn into a task** — the checkmark button (row or reader) applies the `ToDashboard` label and immediately runs the email-to-task sync on it. A green checkmark means that email is already queued.
 
 Sending mail requires the `gmail.send` scope (see the Email-to-task setup above) — if you connected Google before this feature was added, click **Connect Google** again once to re-grant the extra permission.
