@@ -212,6 +212,10 @@ a:focus-visible {
   letter-spacing: -0.015em;
   margin: 0;
   flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-date {
@@ -233,6 +237,59 @@ a:focus-visible {
 
 .view { display: none; }
 .view.active { display: block; }
+
+/* Full-page email reader (Inbox tab) */
+.email-reader {
+  max-width: 760px;
+}
+
+.email-reader-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 16px;
+}
+
+.email-reader-back:hover { color: var(--text); }
+
+.email-reader-subject {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.email-reader-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.email-reader-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 15px;
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+.email-reader-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
 
 /* Stat grid */
 .stat-grid {

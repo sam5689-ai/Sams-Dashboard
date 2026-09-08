@@ -191,39 +191,64 @@ const Inbox = {
     }
   },
 
+  // Switches from the inbox list to the full-page reader view for one
+  // email, matching Gmail's own click-through-to-read behaviour rather than
+  // a small popup.
+  showReaderView() {
+    document.getElementById('view-inbox').classList.remove('active');
+    document.getElementById('view-inbox-reader').classList.add('active');
+  },
+
+  closeReaderView() {
+    document.getElementById('view-inbox-reader').classList.remove('active');
+    document.getElementById('view-inbox').classList.add('active');
+    document.getElementById('viewTitle').textContent = 'Inbox';
+  },
+
   async openReader(id) {
-    Modal.open(`<h2>Loading…</h2><p style="color:var(--text-muted);font-size:13px;">Fetching email content.</p>`);
+    const content = document.getElementById('emailReaderContent');
+    content.innerHTML = `
+      <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
+      <p style="color:var(--text-muted);font-size:13px;">Loading email…</p>
+    `;
+    this.showReaderView();
+    document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
+
     try {
       const email = await Gmail.getFullMessageForReading(id);
       const gmailLink = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(email.threadId)}`;
+      document.getElementById('viewTitle').textContent = email.subject;
 
-      Modal.open(`
-        <h2>${escapeHtml(email.subject)}</h2>
-        <div style="font-size:13px;color:var(--text-muted);margin:-8px 0 14px;line-height:1.6;">
+      content.innerHTML = `
+        <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
+        <div class="email-reader-subject">${escapeHtml(email.subject)}</div>
+        <div class="email-reader-meta">
           <div><strong>From:</strong> ${escapeHtml(email.from)}</div>
           ${email.to ? `<div><strong>To:</strong> ${escapeHtml(email.to)}</div>` : ''}
+          ${email.cc ? `<div><strong>Cc:</strong> ${escapeHtml(email.cc)}</div>` : ''}
           <div>${escapeHtml(this.formatEmailDate(email.date))}</div>
         </div>
-        <div style="white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.6;max-height:40vh;overflow-y:auto;border-top:1px solid var(--border);padding-top:14px;">${escapeHtml(email.body) || '<span style="color:var(--text-muted)">(No content)</span>'}</div>
-        <div class="modal-actions" style="flex-wrap:wrap;">
-          <a class="secondary-btn" href="${escapeAttr(gmailLink)}" target="_blank" rel="noopener">${Icon.externalLink(15)} Open in Gmail</a>
+        <div class="email-reader-body">${escapeHtml(email.body) || '<span style="color:var(--text-muted)">(No content)</span>'}</div>
+        <div class="email-reader-actions">
+          <button type="button" class="primary-btn" id="replyReaderBtn">${Icon.send(15)} Reply</button>
+          <button type="button" class="secondary-btn" id="replyAllReaderBtn">${Icon.send(15)} Reply All</button>
+          <button type="button" class="secondary-btn" id="forwardReaderBtn">${Icon.forward(15)} Forward</button>
           <button type="button" class="secondary-btn" id="archiveReaderBtn">${Icon.archive(15)} Archive</button>
           <button type="button" class="secondary-btn" id="trashReaderBtn">${Icon.trash(15)} Delete</button>
-          <button type="button" class="secondary-btn" id="forwardReaderBtn">${Icon.forward(15)} Forward</button>
-          <button type="button" class="secondary-btn" id="replyAllReaderBtn">${Icon.send(15)} Reply All</button>
-          <button type="button" class="primary-btn" id="replyReaderBtn">${Icon.send(15)} Reply</button>
+          <a class="secondary-btn" href="${escapeAttr(gmailLink)}" target="_blank" rel="noopener">${Icon.externalLink(15)} Open in Gmail</a>
         </div>
-      `);
+      `;
 
+      document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
       document.getElementById('replyReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'reply', email }));
       document.getElementById('replyAllReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'replyAll', email }));
       document.getElementById('forwardReaderBtn').addEventListener('click', () => this.openCompose({ mode: 'forward', email }));
       document.getElementById('archiveReaderBtn').addEventListener('click', async () => {
-        Modal.close();
+        this.closeReaderView();
         await this.archive(email.id);
       });
       document.getElementById('trashReaderBtn').addEventListener('click', async () => {
-        Modal.close();
+        this.closeReaderView();
         await this.trash(email.id);
       });
 
@@ -238,14 +263,11 @@ const Inbox = {
       }
     } catch (err) {
       console.error(err);
-      Modal.open(`
-        <h2>Couldn't load email</h2>
-        <p style="color:var(--text-muted);font-size:13px;">${escapeHtml(err.message || 'Unknown error')}</p>
-        <div class="modal-actions">
-          <button type="button" class="secondary-btn" id="closeReaderBtn">Close</button>
-        </div>
-      `);
-      document.getElementById('closeReaderBtn').addEventListener('click', () => Modal.close());
+      content.innerHTML = `
+        <button type="button" class="email-reader-back" id="readerBackBtn">${Icon.arrowLeft(16)} Back to Inbox</button>
+        <p style="color:var(--danger);font-size:14px;">Couldn't load email: ${escapeHtml(err.message || 'Unknown error')}</p>
+      `;
+      document.getElementById('readerBackBtn').addEventListener('click', () => this.closeReaderView());
     }
   },
 

@@ -90,7 +90,7 @@ The **Inbox** tab is a lightweight Gmail client built into the dashboard, using 
 
 - **Search** — the search box accepts real Gmail search syntax (`from:sam`, `subject:invoice`, `is:unread`, etc.), scoped to your inbox.
 - **Load more** — fetches the next page of results instead of being capped at 20.
-- **Read** — click any email to read its full content right in the dashboard (marks it read in Gmail too, just like opening it there would).
+- **Read** — click any email to open it full-page (not a popup), same as clicking into an email in Gmail itself; a **Back to Inbox** link returns you to the list. Marks it read in Gmail too, just like opening it there would.
 - **Reply / Reply All / Forward** — from the reader, each opens a compose modal prefilled with the right recipients, subject, and quoted original, and sends via Gmail so it threads correctly in the real conversation.
 - **Compose** — the toolbar button starts a brand-new email from scratch.
 - **Archive / Delete** — available both on each row and in the reader; archiving removes the `INBOX` label, deleting moves it to Gmail's trash.
