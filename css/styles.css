@@ -362,6 +362,34 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+.search-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.search-input-wrap .icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input-wrap input[type="text"] {
+  padding-left: 32px;
+  min-width: 240px;
+}
+
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
+}
+
+.load-more-wrap[hidden] {
+  display: none;
+}
+
 select, input[type="search"], input[type="text"], input[type="date"],
 input[type="time"], input[type="email"], input[type="tel"], input[type="url"],
 input[type="number"], textarea {

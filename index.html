@@ -168,11 +168,20 @@
       <section class="view" id="view-inbox">
         <div class="toolbar">
           <div class="filter-group">
-            <span style="color:var(--text-muted);font-size:13px;">Your 20 most recent inbox emails.</span>
+            <span class="search-input-wrap">
+              <span data-icon="search"></span>
+              <input type="text" id="inboxSearchInput" placeholder="Search mail (e.g. from:sam invoice)" />
+            </span>
           </div>
-          <button class="secondary-btn" id="refreshInboxBtn"><span data-icon="download"></span> Refresh</button>
+          <div style="display:flex;gap:8px;">
+            <button class="secondary-btn" id="refreshInboxBtn"><span data-icon="download"></span> Refresh</button>
+            <button class="primary-btn" id="composeEmailBtn"><span data-icon="edit"></span> Compose</button>
+          </div>
         </div>
         <div id="inboxList" class="card-list"></div>
+        <div id="inboxLoadMoreWrap" class="load-more-wrap" hidden>
+          <button class="secondary-btn" id="inboxLoadMoreBtn">Load more</button>
+        </div>
       </section>
 
       <section class="view" id="view-whatsapp">

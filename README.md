@@ -74,7 +74,7 @@ Label an email in Gmail and it turns into a task automatically — no email forw
 **One-time setup:**
 
 1. In the same Google Cloud project as Calendar, go to **APIs & Services → Library** and enable the **Gmail API**.
-2. Under **OAuth consent screen → Data access**, add the Gmail scope `.../auth/gmail.modify` to the app's scope list (it's needed alongside the Calendar scope already there).
+2. Under **OAuth consent screen → Data access**, add the Gmail scopes `.../auth/gmail.modify` and `.../auth/gmail.send` to the app's scope list (needed alongside the Calendar scope already there — `gmail.send` powers the Inbox tab's reply/forward/compose feature below).
 3. In Gmail, create a label called exactly **`ToDashboard`** (the dashboard will also auto-create it the first time it runs if you skip this).
 4. Get an API key from [console.anthropic.com](https://console.anthropic.com/) (pay-as-you-go; parsing one email costs a fraction of a cent with the Haiku model this uses).
 5. In your Vercel project settings, add an environment variable named `ANTHROPIC_API_KEY` with that key, then redeploy.
@@ -86,11 +86,21 @@ This only works on the deployed Vercel site, not when running the dashboard via 
 
 ## Inbox
 
-The **Inbox** tab shows your 20 most recent Gmail messages (sender, subject, snippet, date, unread status) using the same Google connection as the calendar and email-to-task features — no extra setup needed once those are connected. Click any email to read its full content right in the dashboard (marks it read in Gmail too, just like opening it there would). Each row also has an **Open in Gmail** link and a checkmark button that applies the `ToDashboard` label and immediately runs the email-to-task sync on it, so you can turn any inbox email into a task in one click without leaving the dashboard. A green checkmark means that email is already queued.
+The **Inbox** tab is a lightweight Gmail client built into the dashboard, using the same Google connection as the calendar and email-to-task features:
+
+- **Search** — the search box accepts real Gmail search syntax (`from:sam`, `subject:invoice`, `is:unread`, etc.), scoped to your inbox.
+- **Load more** — fetches the next page of results instead of being capped at 20.
+- **Read** — click any email to read its full content right in the dashboard (marks it read in Gmail too, just like opening it there would).
+- **Reply / Reply All / Forward** — from the reader, each opens a compose modal prefilled with the right recipients, subject, and quoted original, and sends via Gmail so it threads correctly in the real conversation.
+- **Compose** — the toolbar button starts a brand-new email from scratch.
+- **Archive / Delete** — available both on each row and in the reader; archiving removes the `INBOX` label, deleting moves it to Gmail's trash.
+- **Turn into a task** — the checkmark button (row or reader) applies the `ToDashboard` label and immediately runs the email-to-task sync on it. A green checkmark means that email is already queued.
+
+Sending mail requires the `gmail.send` scope (see the Email-to-task setup above) — if you connected Google before this feature was added, click **Connect Google** again once to re-grant the extra permission.
 
 ## WhatsApp Inbox and WhatsApp-to-task
 
-The **WhatsApp** tab shows recent messages sent to your WhatsApp Business number, arriving through Meta's official WhatsApp Business Cloud API. This is receive-only: the dashboard never sends WhatsApp messages, so no long-lived WhatsApp access token is needed, only a webhook.
+The **WhatsApp** tab shows recent messages sent to your WhatsApp Business number, arriving through Meta's official WhatsApp Business Cloud API. Receiving only needs a webhook; sending a reply needs a WhatsApp access token too (see **Replying** below).
 
 Unlike email-to-task, WhatsApp messages don't automatically become tasks — you browse the messages and click **Create Task** on the ones you actually want turned into one, same idea as the Gmail Inbox tab. This avoids cluttering Tasks with every casual message.
 

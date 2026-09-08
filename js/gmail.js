@@ -99,9 +99,13 @@ const Gmail = {
       subject: getHeader('Subject') || '(No subject)',
       from: getHeader('From'),
       to: getHeader('To'),
+      cc: getHeader('Cc'),
       date: getHeader('Date'),
       body: this.extractBody(msg.payload),
       labelIds: msg.labelIds || [],
+      // RFC822 Message-Id (distinct from Gmail's own `id`), needed so a
+      // reply/forward threads correctly in Gmail via In-Reply-To/References.
+      messageIdHeader: getHeader('Message-ID') || getHeader('Message-Id'),
     };
   },
 
@@ -134,6 +138,68 @@ const Gmail = {
   async listInboxMessageIds(maxResults) {
     const result = await GoogleCalendar.rawRequest('GET', `${this.API_BASE}/messages?labelIds=INBOX&maxResults=${maxResults || 20}`);
     return (result.messages || []).map((m) => m.id);
+  },
+
+  // Gmail search syntax (e.g. "from:sam subject:invoice") scoped to the
+  // inbox, with pagination — powers the Inbox view's search box + "Load more".
+  async searchInbox({ query, maxResults, pageToken } = {}) {
+    const params = new URLSearchParams();
+    params.set('q', query ? `in:inbox ${query}` : 'in:inbox');
+    params.set('maxResults', String(maxResults || 20));
+    if (pageToken) params.set('pageToken', pageToken);
+    const result = await GoogleCalendar.rawRequest('GET', `${this.API_BASE}/messages?${params.toString()}`);
+    return {
+      ids: (result.messages || []).map((m) => m.id),
+      nextPageToken: result.nextPageToken || null,
+    };
+  },
+
+  async getMyEmail() {
+    if (this._myEmail) return this._myEmail;
+    const profile = await GoogleCalendar.rawRequest('GET', `${this.API_BASE}/profile`);
+    this._myEmail = profile.emailAddress || '';
+    return this._myEmail;
+  },
+
+  extractEmailAddress(headerVal) {
+    if (!headerVal) return '';
+    const match = headerVal.match(/<([^>]+)>/);
+    return (match ? match[1] : headerVal).trim();
+  },
+
+  base64UrlEncode(str) {
+    return btoa(unescape(encodeURIComponent(str)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  },
+
+  buildRawMime({ to, cc, subject, body, inReplyTo, references }) {
+    const headers = [`To: ${to}`];
+    if (cc) headers.push(`Cc: ${cc}`);
+    headers.push(`Subject: ${subject}`);
+    headers.push('Content-Type: text/plain; charset="UTF-8"');
+    headers.push('MIME-Version: 1.0');
+    if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);
+    if (references) headers.push(`References: ${references}`);
+    return `${headers.join('\r\n')}\r\n\r\n${body}`;
+  },
+
+  // Sends a plain-text email. Pass threadId + inReplyTo/references when
+  // replying so Gmail threads it under the original conversation.
+  async sendMessage({ to, cc, subject, body, inReplyTo, references, threadId }) {
+    const raw = this.base64UrlEncode(this.buildRawMime({ to, cc, subject, body, inReplyTo, references }));
+    const payload = { raw };
+    if (threadId) payload.threadId = threadId;
+    return GoogleCalendar.rawRequest('POST', `${this.API_BASE}/messages/send`, payload);
+  },
+
+  async archiveMessage(id) {
+    return this.removeLabel(id, 'INBOX');
+  },
+
+  async trashMessage(id) {
+    return GoogleCalendar.rawRequest('POST', `${this.API_BASE}/messages/${id}/trash`);
   },
 
   // Lightweight summary for list views — headers + snippet only, no full body.

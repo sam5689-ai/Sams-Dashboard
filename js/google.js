@@ -5,7 +5,7 @@
 const GoogleCalendar = {
   CLIENT_ID_KEY: 'dashboard.google.clientId',
   TOKEN_KEY: 'dashboard.google.token',
-  SCOPE: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.modify',
+  SCOPE: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send',
 
   tokenClient: null,
   gisLoading: null,
