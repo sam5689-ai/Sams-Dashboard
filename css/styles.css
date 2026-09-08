@@ -240,7 +240,7 @@ a:focus-visible {
 
 /* Full-page email reader (Inbox tab) — styled after Gmail's own reading pane */
 .email-reader {
-  max-width: 820px;
+  max-width: 100%;
 }
 
 .email-reader-back {
